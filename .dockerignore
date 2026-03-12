@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+**/dist
+**/.next
+**/.turbo
+
+# Data (mounted as volumes in production)
+.knowledge
+.meetings
+
+# Dev & editor files
+.env
+.env.*
+*.log
+.DS_Store
+.vscode
+.idea
+
+# Git
+.git
+.gitignore
+
+# Docs & config files not needed in image
+*.md
+UI_REDESIGN.md
+SPEC.md
+reference-ui.jpg
