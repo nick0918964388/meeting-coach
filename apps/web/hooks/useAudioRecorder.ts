@@ -67,8 +67,11 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
       analyserRef.current = analyser;
 
       // Set up MediaRecorder for chunked recording
-      // Priority: webm/opus > webm > mp4 (iOS Safari) > ogg
-      const detectedMimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      // iOS Safari lies about isTypeSupported('audio/webm') — force mp4 on iOS
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const detectedMimeType = isIOS
+        ? 'audio/mp4'
+        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm')
         ? 'audio/webm'
