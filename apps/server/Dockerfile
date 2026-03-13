@@ -20,12 +20,13 @@ RUN cd apps/server && npx tsc
 # ── Stage 2: Runtime image ─────────────────────────────────────────────────
 FROM node:22-slim
 
-# System deps: ffmpeg (audio conversion) + python3 + pip (faster-whisper)
+# System deps: ffmpeg (audio conversion) + python3 + pip (faster-whisper) + expect (trust dialog)
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
       python3 \
       python3-pip \
       tmux \
+      expect \
     && pip3 install faster-whisper --break-system-packages \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /root/.cache/pip
@@ -66,9 +67,13 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV HOST=0.0.0.0
 
+# Copy entrypoint script
+COPY --chown=1000:1000 apps/server/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Switch to non-root user (UID 1000)
 USER 1000
 
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["/app/entrypoint.sh"]
