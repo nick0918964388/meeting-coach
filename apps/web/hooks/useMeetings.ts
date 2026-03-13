@@ -11,7 +11,8 @@ export interface Meeting {
   coaching: unknown | null;
 }
 
-const SERVER = 'http://localhost:3001';
+// Use relative path so Next.js rewrites proxy to backend
+const SERVER = '';
 
 export function useMeetings() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);

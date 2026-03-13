@@ -3,7 +3,8 @@ import fastifyCors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyMultipart from '@fastify/multipart';
 import { handleWebSocket } from './websocket.js';
-import { addDocument, listDocuments, deleteDocument } from './knowledge.js';
+import { addDocument, listDocuments, deleteDocument, searchKnowledge } from './knowledge.js';
+import { askQuestion, analyzeWithClaude } from './claude.js';
 import { listMeetings, getMeeting, createMeeting, updateMeeting, deleteMeeting } from './meetings.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -64,6 +65,51 @@ async function main() {
       return reply.status(404).send({ error: 'Document not found' });
     }
     return { success: true };
+  });
+
+  // Knowledge base: search (vector search only)
+  app.post<{ Body: { query: string; limit?: number } }>('/api/knowledge/search', async (request, reply) => {
+    const { query, limit = 5 } = request.body || {};
+    if (!query) {
+      return reply.status(400).send({ error: 'Query is required' });
+    }
+    try {
+      const results = await searchKnowledge(query, limit);
+      return { query, results };
+    } catch (err) {
+      app.log.error(err);
+      return reply.status(500).send({ error: String(err) });
+    }
+  });
+
+  // Knowledge base: ask (RAG with Claude CLI)
+  app.post<{ Body: { question: string; limit?: number } }>('/api/ask', async (request, reply) => {
+    const { question, limit = 5 } = request.body || {};
+    if (!question) {
+      return reply.status(400).send({ error: 'Question is required' });
+    }
+    try {
+      const result = await askQuestion(question, limit);
+      return result;
+    } catch (err) {
+      app.log.error(err);
+      return reply.status(500).send({ error: String(err) });
+    }
+  });
+
+  // Test Coach endpoint (for debugging)
+  app.post<{ Body: { transcript: string } }>('/api/test-coach', async (request, reply) => {
+    const { transcript } = request.body || {};
+    if (!transcript) {
+      return reply.status(400).send({ error: 'Transcript is required' });
+    }
+    try {
+      const result = await analyzeWithClaude(transcript);
+      return result;
+    } catch (err) {
+      app.log.error(err);
+      return reply.status(500).send({ error: String(err) });
+    }
   });
 
   // Meetings CRUD

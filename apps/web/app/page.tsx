@@ -11,7 +11,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useMeetings } from '@/hooks/useMeetings';
 
 export default function Home() {
-  const { status, transcripts, coaching, connect, disconnect, send, sendJson } = useWebSocket();
+  const { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson } = useWebSocket();
   const {
     meetings,
     activeMeeting,
@@ -120,7 +120,7 @@ export default function Home() {
 
         {/* Middle: Transcript */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <Transcript lines={transcripts} isRecording={isRecording} />
+          <Transcript lines={transcripts} cleanedText={cleanedTranscript} isRecording={isRecording} />
         </div>
 
         {/* Right: Coach Panel */}

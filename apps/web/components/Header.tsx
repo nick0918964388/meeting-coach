@@ -146,8 +146,55 @@ export function Header({
           />
         </div>
 
-        {/* Audio level bar (only visible while active) */}
-        {(isRecording || isPaused) && (
+        {/* Audio level visualizer - pulsing rings */}
+        {isRecording && (
+          <div
+            style={{
+              position: 'relative',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {/* Outer ring - scales with audio level */}
+            <div
+              style={{
+                position: 'absolute',
+                width: `${20 + audioLevel * 0.3}px`,
+                height: `${20 + audioLevel * 0.3}px`,
+                borderRadius: '50%',
+                background: `rgba(239, 68, 68, ${0.1 + audioLevel * 0.005})`,
+                transition: 'all 0.1s ease-out',
+              }}
+            />
+            {/* Middle ring */}
+            <div
+              style={{
+                position: 'absolute',
+                width: `${14 + audioLevel * 0.2}px`,
+                height: `${14 + audioLevel * 0.2}px`,
+                borderRadius: '50%',
+                background: `rgba(239, 68, 68, ${0.2 + audioLevel * 0.006})`,
+                transition: 'all 0.1s ease-out',
+              }}
+            />
+            {/* Center dot */}
+            <div
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#ef4444',
+                boxShadow: audioLevel > 20 ? '0 0 8px rgba(239, 68, 68, 0.6)' : 'none',
+              }}
+            />
+          </div>
+        )}
+        
+        {/* Audio level bar (shown when paused) */}
+        {isPaused && (
           <div
             style={{
               width: '48px',
@@ -161,7 +208,7 @@ export function Header({
               style={{
                 width: `${audioLevel}%`,
                 height: '100%',
-                background: 'linear-gradient(90deg, #22c55e, #06b6d4)',
+                background: 'linear-gradient(90deg, #f97316, #f59e0b)',
                 borderRadius: '2px',
                 transition: 'width 0.1s',
               }}
@@ -199,8 +246,30 @@ export function Header({
         </span>
       </div>
 
-      {/* Right: WS Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* Right: Nav + WS Status */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Knowledge Link */}
+        <a
+          href="/knowledge"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            background: 'linear-gradient(135deg, #667eea, #764ba2)',
+            color: '#fff',
+            fontSize: '12px',
+            fontWeight: 600,
+            textDecoration: 'none',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+          }}
+        >
+          📚 AI 問答
+        </a>
+        
+        {/* WS Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div
           style={{
             width: '7px',
@@ -232,6 +301,7 @@ export function Header({
             重連
           </button>
         )}
+        </div>
       </div>
     </header>
   );

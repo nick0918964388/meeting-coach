@@ -10,7 +10,8 @@ export interface KnowledgeDoc {
   uploadedAt: string;
 }
 
-const SERVER = 'http://localhost:3001';
+// Use relative path so Next.js rewrites proxy to backend
+const SERVER = '';
 
 export function useKnowledge() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);

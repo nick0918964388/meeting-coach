@@ -1,11 +1,12 @@
 import type { WebSocket } from 'ws';
 import type { SessionState } from './types.js';
 import { transcribeAudio } from './whisper.js';
-import { analyzeWithClaude } from './claude.js';
+import { analyzeWithClaude, cleanTranscript } from './claude.js';
 import type {
   ClientMessage,
   ServerMessage,
   TranscriptMessage,
+  CleanedTranscriptMessage,
   CoachMessage,
   StatusMessage,
 } from '@meeting-coach/shared';
@@ -13,6 +14,7 @@ import type {
 const ANALYSIS_INTERVAL_MS = 30 * 1000; // 30 seconds
 const ANALYSIS_WORD_THRESHOLD = 200;
 const AUDIO_CHUNK_DURATION_MS = 3000; // 3 seconds
+const CLEAN_CHUNK_INTERVAL = 3; // 每 3 個 chunk 觸發一次修正
 
 function send(ws: WebSocket, msg: ServerMessage) {
   if (ws.readyState === ws.OPEN) {
@@ -53,6 +55,7 @@ async function processAudioChunk(
     if (text && text.trim()) {
       session.transcriptBuffer += ' ' + text.trim();
       session.fullTranscript += ' ' + text.trim();
+      session.chunkCount = (session.chunkCount || 0) + 1;
 
       const transcriptMsg: TranscriptMessage = {
         type: 'transcript',
@@ -60,6 +63,11 @@ async function processAudioChunk(
         isFinal: true,
       };
       send(ws, transcriptMsg);
+
+      // 每 N 個 chunk 觸發語意修正
+      if (session.chunkCount % CLEAN_CHUNK_INTERVAL === 0) {
+        triggerCleanTranscript(ws, session);
+      }
 
       // Check if we should trigger Claude analysis
       if (shouldAnalyze(session)) {
@@ -73,6 +81,25 @@ async function processAudioChunk(
     sendStatus(ws, 'error', String(err));
     sendStatus(ws, 'recording');
   }
+}
+
+// 異步修正文字，不阻塞主流程
+function triggerCleanTranscript(ws: WebSocket, session: SessionState): void {
+  const textToClean = session.fullTranscript.trim();
+  if (!textToClean || textToClean.length < 20) return;
+
+  cleanTranscript(textToClean)
+    .then((cleaned) => {
+      const cleanedMsg: CleanedTranscriptMessage = {
+        type: 'cleaned',
+        text: cleaned,
+      };
+      send(ws, cleanedMsg);
+      console.log(`[WS] ${session.id}: Sent cleaned transcript (${cleaned.length} chars)`);
+    })
+    .catch((err) => {
+      console.error(`[WS] ${session.id}: Clean transcript error:`, err);
+    });
 }
 
 async function triggerAnalysis(ws: WebSocket, session: SessionState): Promise<void> {
@@ -102,6 +129,7 @@ export function handleWebSocket(ws: WebSocket): void {
     lastAnalysisTime: Date.now(),
     wordCount: 0,
     audioBuffer: [],
+    chunkCount: 0,
   };
 
   let audioAccumulator: Buffer[] = [];
@@ -176,6 +204,11 @@ export function handleWebSocket(ws: WebSocket): void {
           }
           sendStatus(ws, 'idle');
           console.log(`[WS] ${session.id}: Recording stopped`);
+          break;
+
+        case 'ping':
+          // Keep-alive ping from client
+          send(ws, { type: 'pong' } as ServerMessage);
           break;
       }
     } catch (err) {

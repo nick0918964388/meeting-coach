@@ -7,4 +7,5 @@ export interface SessionState {
   lastAnalysisTime: number;
   wordCount: number;
   audioBuffer: Buffer[];
+  chunkCount: number;
 }

@@ -4,16 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 
 interface TranscriptProps {
   lines: string[];
+  cleanedText: string;
   isRecording: boolean;
 }
 
-export function Transcript({ lines, isRecording }: TranscriptProps) {
+export function Transcript({ lines, cleanedText, isRecording }: TranscriptProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<'raw' | 'cleaned'>('raw');
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [lines]);
+  }, [lines, cleanedText]);
 
   return (
     <div
@@ -69,12 +70,15 @@ export function Transcript({ lines, isRecording }: TranscriptProps) {
               }}
             >
               {t}
+              {t === 'cleaned' && cleanedText && (
+                <span style={{ marginLeft: '4px', color: '#22c55e' }}>●</span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Raw transcript (white bg) */}
+      {/* Transcript content */}
       <div
         style={{
           flex: 1,
@@ -83,65 +87,102 @@ export function Transcript({ lines, isRecording }: TranscriptProps) {
           color: '#1a1a1a',
         }}
       >
-        {lines.length === 0 ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: '#aaa',
-              fontSize: '13px',
-            }}
-          >
-            {isRecording ? '等待語音輸入...' : '錄音後逐字稿將顯示於此'}
-          </div>
+        {tab === 'raw' ? (
+          // RAW tab - 原始逐字稿
+          lines.length === 0 ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                color: '#aaa',
+                fontSize: '13px',
+              }}
+            >
+              {isRecording ? '等待語音輸入...' : '錄音後逐字稿將顯示於此'}
+            </div>
+          ) : (
+            <div style={{ padding: '12px' }}>
+              {lines.map((line, idx) => {
+                const isLatest = idx === lines.length - 1 && isRecording;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      gap: '10px',
+                      marginBottom: '4px',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        color: '#bbb',
+                        minWidth: '36px',
+                        paddingTop: '3px',
+                        flexShrink: 0,
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      {String(idx + 1).padStart(2, '0')}:{String(Math.floor(idx * 3)).padStart(2, '0')}
+                    </span>
+                    <p
+                      className={isLatest ? 'typing-cursor' : ''}
+                      style={{
+                        margin: 0,
+                        fontSize: '13px',
+                        lineHeight: 1.6,
+                        color: isLatest ? '#111' : '#333',
+                        flex: 1,
+                        background: isLatest ? '#f0f9ff' : 'transparent',
+                        padding: isLatest ? '2px 6px' : '2px 0',
+                        borderRadius: '3px',
+                      }}
+                    >
+                      {line}
+                    </p>
+                  </div>
+                );
+              })}
+              <div ref={bottomRef} />
+            </div>
+          )
         ) : (
-          <div style={{ padding: '12px' }}>
-            {lines.map((line, idx) => {
-              const isLatest = idx === lines.length - 1 && isRecording;
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    gap: '10px',
-                    marginBottom: '4px',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: '10px',
-                      color: '#bbb',
-                      minWidth: '36px',
-                      paddingTop: '3px',
-                      flexShrink: 0,
-                      fontFamily: 'monospace',
-                    }}
-                  >
-                    {String(idx + 1).padStart(2, '0')}:{String(Math.floor(idx * 3)).padStart(2, '0')}
-                  </span>
-                  <p
-                    className={isLatest ? 'typing-cursor' : ''}
-                    style={{
-                      margin: 0,
-                      fontSize: '13px',
-                      lineHeight: 1.6,
-                      color: isLatest ? '#111' : '#333',
-                      flex: 1,
-                      background: isLatest ? '#f0f9ff' : 'transparent',
-                      padding: isLatest ? '2px 6px' : '2px 0',
-                      borderRadius: '3px',
-                    }}
-                  >
-                    {line}
-                  </p>
-                </div>
-              );
-            })}
-            <div ref={bottomRef} />
-          </div>
+          // CLEANED tab - 修正後的文字
+          !cleanedText ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                color: '#aaa',
+                fontSize: '13px',
+                flexDirection: 'column',
+                gap: '8px',
+              }}
+            >
+              <span style={{ fontSize: '24px' }}>✨</span>
+              <span>AI 修正後的文字將顯示於此</span>
+              <span style={{ fontSize: '11px', color: '#bbb' }}>每 3 段自動修正一次</span>
+            </div>
+          ) : (
+            <div style={{ padding: '16px' }}>
+              <div
+                style={{
+                  fontSize: '14px',
+                  lineHeight: 1.8,
+                  color: '#1a1a1a',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {cleanedText}
+              </div>
+              <div ref={bottomRef} />
+            </div>
+          )
         )}
       </div>
 

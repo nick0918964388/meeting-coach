@@ -17,13 +17,22 @@ export interface StopMessage {
   type: 'stop';
 }
 
-export type ClientMessage = StartMessage | AudioMessage | StopMessage;
+export interface PingMessage {
+  type: 'ping';
+}
+
+export type ClientMessage = StartMessage | AudioMessage | StopMessage | PingMessage;
 
 // Server → Client messages
 export interface TranscriptMessage {
   type: 'transcript';
   text: string;
   isFinal: boolean;
+}
+
+export interface CleanedTranscriptMessage {
+  type: 'cleaned';
+  text: string;  // LLM 修正後的完整文字
 }
 
 export interface CoachMessage {
@@ -40,4 +49,8 @@ export interface StatusMessage {
   message?: string;
 }
 
-export type ServerMessage = TranscriptMessage | CoachMessage | StatusMessage;
+export interface PongMessage {
+  type: 'pong';
+}
+
+export type ServerMessage = TranscriptMessage | CleanedTranscriptMessage | CoachMessage | StatusMessage | PongMessage;
