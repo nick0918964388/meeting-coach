@@ -66,14 +66,22 @@ RUN mkdir -p /home/appuser/.claude/projects/-app && \
     echo '{}' > /home/appuser/.claude/settings.json && \
     chown -R 1000:1000 /home/appuser 2>/dev/null || true
 
-# Create expect script to auto-confirm trust dialog
+# Create expect script to auto-confirm trust dialog and keep Claude running
 RUN echo '#!/usr/bin/expect -f\n\
+set timeout 30\n\
 spawn claude --dangerously-skip-permissions\n\
 expect {\n\
-    "Enter to confirm" { send "\\r" }\n\
-    timeout { exit 1 }\n\
-}\n\
-interact' > /usr/local/bin/claude-interactive && \
+    "Enter to confirm" {\n\
+        send "\\r"\n\
+        exp_continue\n\
+    }\n\
+    "❯" {\n\
+        interact\n\
+    }\n\
+    timeout {\n\
+        interact\n\
+    }\n\
+}' > /usr/local/bin/claude-interactive && \
     chmod +x /usr/local/bin/claude-interactive
 
 ENV NODE_ENV=production
