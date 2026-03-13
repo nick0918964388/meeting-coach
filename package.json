@@ -12,7 +12,8 @@
     "start": "turbo run start",
     "lint": "turbo run lint",
     "dev:web": "turbo run dev --filter=web",
-    "dev:server": "turbo run dev --filter=server"
+    "dev:server": "turbo run dev --filter=server",
+    "deploy:thor": "./scripts/deploy-thor.sh"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
