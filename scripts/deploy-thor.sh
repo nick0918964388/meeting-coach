@@ -1,28 +1,37 @@
-#!/bin/bash
-# Deploy to Thor (192.168.1.161)
-# Usage: ./scripts/deploy-thor.sh [commit message]
+#!/usr/bin/env bash
+# Deploy to thor
+# Usage: ./scripts/deploy-thor.sh ["optional commit message"]
+set -euo pipefail
 
-set -e
+REMOTE_HOST="thor"
+REMOTE_DIR="~/meeting-coach"
 
-cd "$(dirname "$0")/.."
+cd "$(git rev-parse --show-toplevel)"
 
-# Default commit message
-COMMIT_MSG="${1:-deploy: auto deploy to thor}"
+# ── 1. Commit ────────────────────────────────────────────────────────────────
+echo "📦 Staging all changes..."
+git add -A
 
-echo "🔄 Checking for changes..."
-if git diff --quiet && git diff --staged --quiet; then
-    echo "📝 No local changes, pulling latest..."
+if git diff --cached --quiet; then
+  echo "   Nothing new to commit."
 else
-    echo "📦 Committing changes..."
-    git add -A
-    git commit -m "$COMMIT_MSG"
+  MSG="${1:-"chore: deploy $(date '+%Y-%m-%d %H:%M')"}"
+  git commit -m "$MSG"
+  echo "   ✅ Committed: $MSG"
 fi
 
+# ── 2. Push ──────────────────────────────────────────────────────────────────
 echo "🚀 Pushing to origin..."
-git push origin main
+git push
 
-echo "🔧 Deploying to Thor..."
-ssh thor "cd ~/meeting-coach && git stash 2>/dev/null || true && git pull && git stash pop 2>/dev/null || true && docker compose up -d --build"
+# ── 3. Remote deploy ─────────────────────────────────────────────────────────
+echo "🖥️  Deploying on $REMOTE_HOST:$REMOTE_DIR ..."
+ssh "$REMOTE_HOST" "
+  set -euo pipefail
+  cd $REMOTE_DIR
+  git pull
+  docker compose up -d --build
+"
 
-echo "✅ Deployed to Thor!"
-echo "🌐 https://meeting-coach.nickai.cc"
+echo ""
+echo "✅ Deploy complete → $REMOTE_HOST:$REMOTE_DIR"

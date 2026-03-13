@@ -262,6 +262,7 @@ export async function askQuestionStream(
 
   const args = [
     '-p', '--dangerously-skip-permissions',
+    '--verbose',  // Required for stream-json with -p flag
     '--output-format', 'stream-json',
     // Resume existing session so Claude remembers previous turns
     ...(sessionId ? ['--resume', sessionId] : []),
