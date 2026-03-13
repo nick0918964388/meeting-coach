@@ -32,6 +32,7 @@ export default function Home() {
   } = useMeetings();
 
   const [mobileTab, setMobileTab] = useState<MobileTab>('transcript');
+  const [toolSheetOpen, setToolSheetOpen] = useState(false);
 
   // Recording timer
   const [elapsed, setElapsed] = useState(0);
@@ -106,6 +107,7 @@ export default function Home() {
         onPause={handlePause}
         onResume={handleResume}
         onReconnect={connect}
+        onOpenToolSheet={() => setToolSheetOpen(true)}
       />
 
       {/* Main content: 3-col on desktop, single-panel on mobile */}
@@ -180,7 +182,11 @@ export default function Home() {
       </div>
 
       {/* Bottom control bar (secondary actions) */}
-      <AudioRecorder error={recorder.error} />
+      <AudioRecorder
+        error={recorder.error}
+        toolSheetOpen={toolSheetOpen}
+        onCloseToolSheet={() => setToolSheetOpen(false)}
+      />
     </div>
   );
 }

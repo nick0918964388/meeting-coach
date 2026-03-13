@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 // Recording controls (⏺/⏸/⏹) have moved to the Header.
 // This bar contains secondary action buttons only.
 
 interface AudioRecorderProps {
   error: string | null;
+  toolSheetOpen: boolean;
+  onCloseToolSheet: () => void;
 }
 
 interface Action {
@@ -181,9 +183,7 @@ function MobileSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
   );
 }
 
-export function AudioRecorder({ error }: AudioRecorderProps) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-
+export function AudioRecorder({ error, toolSheetOpen, onCloseToolSheet }: AudioRecorderProps) {
   return (
     <>
       <div
@@ -203,36 +203,13 @@ export function AudioRecorder({ error }: AudioRecorderProps) {
           {ACTIONS.map((a) => <CtrlBtn key={a.label} {...a} />)}
         </div>
 
-        {/* Mobile: ⋯ menu button */}
-        <button
-          className="md:hidden"
-          onClick={() => setSheetOpen(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            border: '1px solid #d0d0d0',
-            background: '#f5f5f5',
-            color: '#374151',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            minHeight: '40px',
-          }}
-        >
-          <span style={{ fontSize: '18px', lineHeight: 1 }}>⋯</span>
-          <span>工具</span>
-        </button>
-
         {error && (
           <span style={{ fontSize: '11px', color: '#ef4444', marginLeft: 'auto' }}>⚠️ {error}</span>
         )}
       </div>
 
-      {/* Mobile bottom sheet */}
-      <MobileSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      {/* Bottom sheet (triggered from Header on mobile) */}
+      <MobileSheet open={toolSheetOpen} onClose={onCloseToolSheet} />
     </>
   );
 }

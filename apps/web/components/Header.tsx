@@ -13,6 +13,7 @@ interface HeaderProps {
   onPause: () => void;
   onResume: () => void;
   onReconnect?: () => void;
+  onOpenToolSheet?: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -68,6 +69,7 @@ export function Header({
   onPause,
   onResume,
   onReconnect,
+  onOpenToolSheet,
 }: HeaderProps) {
   const isIdle = recordingState === 'idle';
   const isRecording = recordingState === 'recording';
@@ -267,6 +269,31 @@ export function Header({
         >
           📚 AI 問答
         </a>
+
+        {/* Tool sheet trigger — mobile only */}
+        {onOpenToolSheet && (
+          <button
+            className="md:hidden"
+            onClick={onOpenToolSheet}
+            title="工具選單"
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '8px',
+              border: '1px solid #e5e7eb',
+              background: '#f9fafb',
+              color: '#374151',
+              fontSize: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            ⋯
+          </button>
+        )}
 
         {/* WS Status dot — always visible */}
         <div
