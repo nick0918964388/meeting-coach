@@ -21,10 +21,17 @@ interface Message {
 
 interface KnowledgePanelProps {
   meetingId?: string;
+  tab?: 'docs' | 'chat';
+  onTabChange?: (tab: 'docs' | 'chat') => void;
 }
 
-export function KnowledgePanel({ meetingId = 'global' }: KnowledgePanelProps) {
-  const [tab, setTab] = useState<'docs' | 'chat'>('docs');
+export function KnowledgePanel({ meetingId = 'global', tab: tabProp, onTabChange }: KnowledgePanelProps) {
+  const [tabInternal, setTabInternal] = useState<'docs' | 'chat'>('docs');
+  const tab = tabProp ?? tabInternal;
+  const setTab = (t: 'docs' | 'chat') => {
+    setTabInternal(t);
+    onTabChange?.(t);
+  };
   const { docs, uploading, error, upload, remove } = useKnowledge(meetingId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -148,7 +155,7 @@ export function KnowledgePanel({ meetingId = 'global' }: KnowledgePanelProps) {
   const totalChunks = docs.reduce((s, d) => s + d.chunks, 0);
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
       {/* Header with tabs */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <span style={{ fontSize: '11px', fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -235,9 +242,9 @@ export function KnowledgePanel({ meetingId = 'global' }: KnowledgePanelProps) {
 
       {/* Chat Tab */}
       {tab === 'chat' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {/* Messages */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto', padding: '4px 0' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          {/* Messages — scrollable */}
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '6px', padding: '4px 0' }}>
             {messages.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px 8px', color: '#bbb', fontSize: '12px' }}>
                 <div style={{ marginBottom: '4px', fontSize: '18px' }}>💬</div>
@@ -280,39 +287,40 @@ export function KnowledgePanel({ meetingId = 'global' }: KnowledgePanelProps) {
             <div ref={messagesEndRef} />
           </div>
 
-          {chatError && (
-            <div style={{ padding: '4px 6px', background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: '4px', fontSize: '11px', color: '#cc3333' }}>
-              ⚠️ {chatError}
-            </div>
-          )}
-
-          {/* Input row */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            {messages.length > 0 && (
-              <button
-                onClick={clearChat}
-                title="清除對話"
-                style={{ padding: '5px 6px', borderRadius: '5px', border: '1px solid #ddd', background: '#f0f0ea', color: '#999', fontSize: '12px', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}
-              >
-                🗑
-              </button>
+          {/* Input row — sticky at bottom */}
+          <div style={{ flexShrink: 0, paddingTop: '6px', borderTop: '1px solid #e0e0d8' }}>
+            {chatError && (
+              <div style={{ marginBottom: '6px', padding: '4px 6px', background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: '4px', fontSize: '11px', color: '#cc3333' }}>
+                ⚠️ {chatError}
+              </div>
             )}
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAsk(); } }}
-              placeholder={sessionIdRef.current ? '繼續問…' : '輸入問題...'}
-              disabled={chatLoading}
-              style={{ flex: 1, padding: '6px 8px', borderRadius: '5px', border: '1px solid #ccc', fontSize: '12px', background: '#fff', color: '#333', outline: 'none', minWidth: 0 }}
-            />
-            <button
-              onClick={handleAsk}
-              disabled={chatLoading || !query.trim()}
-              style={{ padding: '6px 10px', borderRadius: '5px', border: 'none', background: chatLoading || !query.trim() ? '#ccc' : '#3b82f6', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: chatLoading || !query.trim() ? 'not-allowed' : 'pointer', flexShrink: 0 }}
-            >
-              {chatLoading ? '...' : '送'}
-            </button>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              {messages.length > 0 && (
+                <button
+                  onClick={clearChat}
+                  title="清除對話"
+                  style={{ padding: '5px 6px', borderRadius: '5px', border: '1px solid #ddd', background: '#f0f0ea', color: '#999', fontSize: '12px', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}
+                >
+                  🗑
+                </button>
+              )}
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAsk(); } }}
+                placeholder={sessionIdRef.current ? '繼續問…' : '輸入問題...'}
+                disabled={chatLoading}
+                style={{ flex: 1, padding: '6px 8px', borderRadius: '5px', border: '1px solid #ccc', fontSize: '12px', background: '#fff', color: '#333', outline: 'none', minWidth: 0 }}
+              />
+              <button
+                onClick={handleAsk}
+                disabled={chatLoading || !query.trim()}
+                style={{ padding: '6px 10px', borderRadius: '5px', border: 'none', background: chatLoading || !query.trim() ? '#ccc' : '#3b82f6', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: chatLoading || !query.trim() ? 'not-allowed' : 'pointer', flexShrink: 0 }}
+              >
+                {chatLoading ? '...' : '送'}
+              </button>
+            </div>
           </div>
         </div>
       )}

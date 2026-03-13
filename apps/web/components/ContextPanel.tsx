@@ -23,6 +23,7 @@ export function ContextPanel({
 }: ContextPanelProps) {
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [knowledgeTab, setKnowledgeTab] = useState<'docs' | 'chat'>('docs');
 
   const handleCreate = () => {
     const title = newTitle.trim() || `會議 ${new Date().toLocaleDateString('zh-TW')}`;
@@ -80,11 +81,13 @@ export function ContextPanel({
       <div
         style={{
           flex: 1,
-          overflowY: 'auto',
+          overflowY: knowledgeTab === 'chat' ? 'hidden' : 'auto',
+          overflow: knowledgeTab === 'chat' ? 'hidden' : undefined,
           padding: '12px 14px',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
+          minHeight: 0,
         }}
       >
         {/* Meeting Selector */}
@@ -265,7 +268,11 @@ export function ContextPanel({
         )}
 
         {/* Knowledge Base */}
-        <KnowledgePanel meetingId={activeMeeting?.id ?? 'global'} />
+        <KnowledgePanel
+          meetingId={activeMeeting?.id ?? 'global'}
+          tab={knowledgeTab}
+          onTabChange={setKnowledgeTab}
+        />
       </div>
     </div>
   );

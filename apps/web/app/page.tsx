@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AudioRecorder } from '@/components/AudioRecorder';
 import { Transcript } from '@/components/Transcript';
 import { CoachPanel } from '@/components/CoachPanel';
 import { Header } from '@/components/Header';
@@ -32,7 +31,6 @@ export default function Home() {
   } = useMeetings();
 
   const [mobileTab, setMobileTab] = useState<MobileTab>('transcript');
-  const [toolSheetOpen, setToolSheetOpen] = useState(false);
 
   // Recording timer
   const [elapsed, setElapsed] = useState(0);
@@ -107,7 +105,6 @@ export default function Home() {
         onPause={handlePause}
         onResume={handleResume}
         onReconnect={connect}
-        onOpenToolSheet={() => setToolSheetOpen(true)}
       />
 
       {/* Main content: 3-col on desktop, single-panel on mobile */}
@@ -181,12 +178,6 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Bottom control bar (secondary actions) */}
-      <AudioRecorder
-        error={recorder.error}
-        toolSheetOpen={toolSheetOpen}
-        onCloseToolSheet={() => setToolSheetOpen(false)}
-      />
     </div>
   );
 }
