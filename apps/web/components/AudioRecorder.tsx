@@ -44,6 +44,7 @@ export function AudioRecorder({ error }: AudioRecorderProps) {
         background: '#ffffff',
         borderTop: '1px solid #d8d8d0',
         padding: '7px 12px',
+        paddingBottom: 'calc(7px + env(safe-area-inset-bottom))',
         display: 'flex',
         alignItems: 'center',
         gap: '6px',

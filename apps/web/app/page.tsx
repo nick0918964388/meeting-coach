@@ -91,7 +91,10 @@ export default function Home() {
   const isRecording = recorder.recordingState === 'recording';
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#1a1a1a' }}>
+    <div
+      className="flex flex-col overflow-hidden"
+      style={{ background: '#1a1a1a', height: '100dvh' }}
+    >
       {/* Top header bar */}
       <Header
         elapsed={elapsed}
