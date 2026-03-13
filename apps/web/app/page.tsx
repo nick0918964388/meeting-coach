@@ -107,6 +107,13 @@ export default function Home() {
         onReconnect={connect}
       />
 
+      {/* Debug bar */}
+      <div style={{ background: '#1e293b', color: '#94a3b8', fontSize: '11px', padding: '4px 12px', fontFamily: 'monospace', flexShrink: 0, display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+        <span>mime: <span style={{ color: '#38bdf8' }}>{recorder.mimeType}</span></span>
+        <span>state: <span style={{ color: '#4ade80' }}>{recorder.recordingState}</span></span>
+        <span>error: <span style={{ color: recorder.error ? '#f87171' : '#64748b' }}>{recorder.error || 'none'}</span></span>
+      </div>
+
       {/* Main content: 3-col on desktop, single-panel on mobile */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left: Context / Playbook */}
