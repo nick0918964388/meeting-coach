@@ -56,8 +56,25 @@ RUN mkdir -p .knowledge .meetings && \
     chown -R 1000:1000 /app
 
 # Claude config directory (will be mounted as volume)
-RUN mkdir -p /home/appuser/.claude 2>/dev/null || true && \
+# Install expect for auto-confirming Claude trust dialog
+RUN apt-get update && apt-get install -y --no-install-recommends expect && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Pre-create Claude config directory
+RUN mkdir -p /home/appuser/.claude/projects/-app && \
+    echo '{}' > /home/appuser/.claude/projects/-app/sessions-index.json && \
+    echo '{}' > /home/appuser/.claude/settings.json && \
     chown -R 1000:1000 /home/appuser 2>/dev/null || true
+
+# Create expect script to auto-confirm trust dialog
+RUN echo '#!/usr/bin/expect -f\n\
+spawn claude --dangerously-skip-permissions\n\
+expect {\n\
+    "Enter to confirm" { send "\\r" }\n\
+    timeout { exit 1 }\n\
+}\n\
+interact' > /usr/local/bin/claude-interactive && \
+    chmod +x /usr/local/bin/claude-interactive
 
 ENV NODE_ENV=production
 ENV PORT=3001
