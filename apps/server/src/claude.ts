@@ -235,26 +235,13 @@ export async function askQuestion(question: string, topK = 5): Promise<AskResult
 
 type SseEmitter = (event: string, data: unknown) => void;
 
-export async function askQuestionStream(
-  question: string,
-  topK: number,
+// Internal streaming implementation
+async function _askQuestionStreamInternal(
+  prompt: string,
+  relevantChunks: string[],
   sessionId: string | undefined,
   onEvent: SseEmitter,
-): Promise<void> {
-  const relevantChunks = await searchKnowledge(question, topK);
-
-  if (relevantChunks.length === 0) {
-    onEvent('text', { text: '抱歉，知識庫中找不到與您問題相關的資料。請先上傳相關文件。' });
-    onEvent('done', { sessionId: null, sources: [] });
-    return;
-  }
-
-  const context = relevantChunks
-    .map((chunk, i) => `[文件片段 ${i + 1}]\n${chunk}`)
-    .join('\n\n');
-
-  const prompt = ASK_PROMPT_TEMPLATE(question, context);
-
+): Promise<{ success: boolean; sessionNotFound: boolean }> {
   const env = { ...process.env };
   delete env.CLAUDECODE;
   delete env.CLAUDE_CODE_SESSION_ID;
@@ -276,6 +263,7 @@ export async function askQuestionStream(
   let lastSentLength = 0;
   let finalSessionId: string | null = sessionId ?? null;
   let doneSent = false;
+  let sessionNotFound = false;
 
   proc.stdout.on('data', (chunk: Buffer) => {
     buffer += chunk.toString();
@@ -293,6 +281,15 @@ export async function askQuestionStream(
           finalSessionId = evt.session_id;
         }
 
+        // Check for "No conversation found" error
+        if (evt.type === 'result' && evt.is_error === true) {
+          const errors = evt.errors as string[] | undefined;
+          if (errors?.some((e) => e.includes('No conversation found'))) {
+            sessionNotFound = true;
+            console.warn('[Claude] Session not found, will retry without sessionId');
+          }
+        }
+
         // Stream text deltas from assistant messages
         if (evt.type === 'assistant' && evt.message) {
           const msg = evt.message as { content?: Array<{ type: string; text?: string }> };
@@ -307,8 +304,8 @@ export async function askQuestionStream(
           }
         }
 
-        // Final result event — send 'done'
-        if (evt.type === 'result') {
+        // Final result event — send 'done' (only if not retrying)
+        if (evt.type === 'result' && !sessionNotFound) {
           // Fallback: if no text was streamed, use the result field
           if (lastSentLength === 0 && typeof evt.result === 'string' && evt.result) {
             onEvent('text', { text: evt.result });
@@ -330,6 +327,13 @@ export async function askQuestionStream(
 
     proc.on('close', (code) => {
       clearTimeout(timer);
+      
+      // If session not found, return for retry
+      if (sessionNotFound) {
+        resolve({ success: false, sessionNotFound: true });
+        return;
+      }
+      
       if (code !== 0) {
         reject(new Error(`Claude CLI exited with code ${code}`));
         return;
@@ -338,7 +342,7 @@ export async function askQuestionStream(
       if (!doneSent) {
         onEvent('done', { sessionId: finalSessionId, sources: relevantChunks });
       }
-      resolve();
+      resolve({ success: true, sessionNotFound: false });
     });
 
     proc.on('error', (err) => {
@@ -346,4 +350,34 @@ export async function askQuestionStream(
       reject(err);
     });
   });
+}
+
+export async function askQuestionStream(
+  question: string,
+  topK: number,
+  sessionId: string | undefined,
+  onEvent: SseEmitter,
+): Promise<void> {
+  const relevantChunks = await searchKnowledge(question, topK);
+
+  if (relevantChunks.length === 0) {
+    onEvent('text', { text: '抱歉，知識庫中找不到與您問題相關的資料。請先上傳相關文件。' });
+    onEvent('done', { sessionId: null, sources: [] });
+    return;
+  }
+
+  const context = relevantChunks
+    .map((chunk, i) => `[文件片段 ${i + 1}]\n${chunk}`)
+    .join('\n\n');
+
+  const prompt = ASK_PROMPT_TEMPLATE(question, context);
+
+  // First attempt with sessionId (if provided)
+  const result = await _askQuestionStreamInternal(prompt, relevantChunks, sessionId, onEvent);
+  
+  // If session not found, retry without sessionId
+  if (!result.success && result.sessionNotFound && sessionId) {
+    console.log('[Claude] Retrying without sessionId...');
+    await _askQuestionStreamInternal(prompt, relevantChunks, undefined, onEvent);
+  }
 }
