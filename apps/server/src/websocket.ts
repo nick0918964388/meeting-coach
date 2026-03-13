@@ -159,6 +159,7 @@ export function handleWebSocket(ws: WebSocket): void {
 
   ws.on('message', async (raw) => {
     try {
+      console.log('[WS] Received message type:', typeof raw, 'isBuffer:', raw instanceof Buffer, 'length:', (raw as any).length ?? (raw as any).byteLength ?? 0);
       // Handle binary audio data directly
       if (raw instanceof Buffer) {
         if (session.isRecording) {
