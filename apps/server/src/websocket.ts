@@ -50,7 +50,9 @@ async function processAudioChunk(
 ): Promise<void> {
   try {
     sendStatus(ws, 'processing');
+    console.log(`[WS] transcribeAudio start: ${chunk.length} bytes, mimeType: ${session.mimeType}, lang: ${session.language}`);
     const text = await transcribeAudio(chunk, session.language, session.mimeType);
+    console.log(`[WS] transcribeAudio result: "${text}"`);
 
     if (text && text.trim()) {
       session.transcriptBuffer += ' ' + text.trim();
@@ -170,6 +172,7 @@ export function handleWebSocket(ws: WebSocket): void {
       }
 
       const msg: ClientMessage = JSON.parse(raw.toString());
+      console.log('[WS] JSON message:', JSON.stringify(msg));
 
       switch (msg.type) {
         case 'start':
@@ -177,6 +180,7 @@ export function handleWebSocket(ws: WebSocket): void {
           session.language = msg.config?.language || 'zh';
           session.meetingId = msg.config?.meetingId || 'global';
           session.mimeType = msg.config?.mimeType || 'audio/webm';
+          console.log('[WS] Start recording, mimeType:', msg.config?.mimeType);
           session.transcriptBuffer = '';
           session.fullTranscript = '';
           session.lastAnalysisTime = Date.now();
