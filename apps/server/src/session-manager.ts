@@ -68,8 +68,14 @@ export async function startSession(meetingId: string): Promise<void> {
   execFileSync('tmux', ['new-session', '-d', '-s', sName, '-x', '220', '-y', '50'], { env });
   execFileSync('tmux', ['send-keys', '-t', sName, 'claude --dangerously-skip-permissions', 'Enter'], { env });
 
-  // Wait for Claude to start and show the interactive prompt
-  await sleep(4000);
+  // Wait for Claude to start and show the trust prompt
+  await sleep(2000);
+  
+  // Auto-confirm "Yes, I trust this folder" by pressing Enter
+  execFileSync('tmux', ['send-keys', '-t', sName, '', 'Enter'], { env });
+  
+  // Wait for Claude interactive prompt to be ready
+  await sleep(3000);
   console.log(`[Session] Started tmux session ${sName} for meeting ${meetingId}`);
 }
 
