@@ -24,6 +24,7 @@ services:
       - knowledge_data:/app/.knowledge
       - meetings_data:/app/.meetings
       # Mount Claude CLI config for non-root user (appuser UID=1000)
+      - ${HOME}/.claude:/home/appuser/.claude:ro
       - ${HOME}/.claude.json:/home/appuser/.claude.json:ro
     restart: unless-stopped
     healthcheck:
