@@ -2,15 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-interface SearchResult {
-  text: string;
-}
-
-interface AskResponse {
-  answer: string;
-  sources: string[];
-}
-
 interface Document {
   id: string;
   filename: string;
@@ -23,6 +14,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   sources?: string[];
+  streaming?: boolean;
 }
 
 export default function KnowledgePage() {
@@ -35,6 +27,8 @@ export default function KnowledgePage() {
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sessionIdRef = useRef<string | undefined>(undefined);
+  const esRef = useRef<EventSource | null>(null);
 
   const API_BASE = '/api';
 
@@ -43,10 +37,11 @@ export default function KnowledgePage() {
   }, [messages]);
 
   useEffect(() => {
-    if (mode === 'docs') {
-      fetchDocuments();
-    }
+    if (mode === 'docs') fetchDocuments();
   }, [mode]);
+
+  // Clean up EventSource on unmount
+  useEffect(() => () => { esRef.current?.close(); }, []);
 
   const fetchDocuments = async () => {
     try {
@@ -58,41 +53,92 @@ export default function KnowledgePage() {
     }
   };
 
-  const handleAsk = async () => {
-    if (!query.trim()) return;
+  const handleAsk = () => {
+    if (!query.trim() || loading) return;
 
-    const userMessage: Message = { role: 'user', content: query };
-    setMessages((prev) => [...prev, userMessage]);
+    // Close any existing stream
+    esRef.current?.close();
+
+    const currentQuery = query;
     setQuery('');
     setLoading(true);
     setError('');
 
-    try {
-      const res = await fetch(`${API_BASE}/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: query, limit: 5 }),
+    // Add user + empty streaming assistant placeholder
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', content: currentQuery },
+      { role: 'assistant', content: '', streaming: true },
+    ]);
+
+    const params = new URLSearchParams({ question: currentQuery, limit: '5' });
+    if (sessionIdRef.current) params.set('sessionId', sessionIdRef.current);
+
+    const es = new EventSource(`${API_BASE}/ask-stream?${params}`);
+    esRef.current = es;
+
+    es.addEventListener('text', (e) => {
+      const { text } = JSON.parse((e as MessageEvent).data) as { text: string };
+      setMessages((prev) => {
+        const msgs = [...prev];
+        const last = msgs[msgs.length - 1];
+        if (last?.role === 'assistant') {
+          msgs[msgs.length - 1] = { ...last, content: last.content + text };
+        }
+        return msgs;
       });
+    });
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || `HTTP ${res.status}`);
-      }
-
-      const data: AskResponse = await res.json();
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.answer,
-        sources: data.sources,
+    es.addEventListener('done', (e) => {
+      const { sessionId: sid, sources } = JSON.parse((e as MessageEvent).data) as {
+        sessionId: string | null;
+        sources: string[];
       };
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'AI 回答失敗');
-      setMessages((prev) => prev.slice(0, -1));
-    } finally {
+      if (sid) sessionIdRef.current = sid;
+      setMessages((prev) => {
+        const msgs = [...prev];
+        const last = msgs[msgs.length - 1];
+        if (last?.role === 'assistant') {
+          msgs[msgs.length - 1] = { ...last, streaming: false, sources };
+        }
+        return msgs;
+      });
+      es.close();
+      esRef.current = null;
       setLoading(false);
-    }
+    });
+
+    es.addEventListener('fail', (e) => {
+      const { message } = JSON.parse((e as MessageEvent).data) as { message: string };
+      setError(message);
+      // Remove empty assistant placeholder
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
+        return prev.map((m, i) =>
+          i === prev.length - 1 && m.role === 'assistant' ? { ...m, streaming: false } : m,
+        );
+      });
+      es.close();
+      esRef.current = null;
+      setLoading(false);
+    });
+
+    es.onerror = () => {
+      // Only handle if still loading (not closed intentionally)
+      if (es.readyState === EventSource.CLOSED) return;
+      setError('連線中斷，請重試');
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
+        return prev.map((m, i) =>
+          i === prev.length - 1 && m.role === 'assistant' ? { ...m, streaming: false } : m,
+        );
+      });
+      es.close();
+      esRef.current = null;
+      setLoading(false);
+    };
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,17 +151,11 @@ export default function KnowledgePage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-
-      const res = await fetch(`${API_BASE}/knowledge/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
+      const res = await fetch(`${API_BASE}/knowledge/upload`, { method: 'POST', body: formData });
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || 'Upload failed');
       }
-
       await fetchDocuments();
     } catch (err) {
       setError(err instanceof Error ? err.message : '上傳失敗');
@@ -127,7 +167,6 @@ export default function KnowledgePage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('確定要刪除這個文件嗎？')) return;
-
     try {
       const res = await fetch(`${API_BASE}/knowledge/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
@@ -145,7 +184,12 @@ export default function KnowledgePage() {
   };
 
   const clearChat = () => {
+    esRef.current?.close();
+    esRef.current = null;
+    sessionIdRef.current = undefined;
     setMessages([]);
+    setError('');
+    setLoading(false);
   };
 
   const formatSize = (bytes: number) => {
@@ -154,14 +198,19 @@ export default function KnowledgePage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const hasSession = !!sessionIdRef.current;
+
   return (
+    // BUG FIX: use height:100dvh (not minHeight) so the inner scroll container
+    // is properly bounded and overflow-y:auto can trigger scrolling.
     <div
       style={{
-        minHeight: '100vh',
+        height: '100dvh',
         background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
       {/* Header */}
@@ -170,31 +219,33 @@ export default function KnowledgePage() {
           padding: '16px 24px',
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           background: 'rgba(0,0,0,0.2)',
+          flexShrink: 0,
         }}
       >
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <a
-                href="/"
-                style={{
-                  color: '#8892b0',
-                  textDecoration: 'none',
-                  fontSize: '0.9rem',
-                }}
-              >
+              <a href="/" style={{ color: '#8892b0', textDecoration: 'none', fontSize: '0.9rem' }}>
                 ← 返回
               </a>
-              <h1
-                style={{
-                  fontSize: '1.4rem',
-                  fontWeight: 700,
-                  color: '#fff',
-                  margin: 0,
-                }}
-              >
+              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#fff', margin: 0 }}>
                 📚 知識庫問答
               </h1>
+              {/* Session indicator */}
+              {mode === 'chat' && hasSession && (
+                <span
+                  style={{
+                    fontSize: '11px',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    background: 'rgba(100,255,218,0.1)',
+                    border: '1px solid rgba(100,255,218,0.3)',
+                    color: '#64ffda',
+                  }}
+                >
+                  對話中
+                </span>
+              )}
             </div>
 
             {/* Mode Toggle */}
@@ -204,6 +255,7 @@ export default function KnowledgePage() {
                 background: 'rgba(255,255,255,0.1)',
                 borderRadius: '8px',
                 padding: '4px',
+                flexShrink: 0,
               }}
             >
               {(['chat', 'docs'] as const).map((m) => (
@@ -214,7 +266,10 @@ export default function KnowledgePage() {
                     padding: '8px 16px',
                     borderRadius: '6px',
                     border: 'none',
-                    background: mode === m ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'transparent',
+                    background:
+                      mode === m
+                        ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                        : 'transparent',
                     color: '#fff',
                     cursor: 'pointer',
                     fontSize: '0.9rem',
@@ -229,8 +284,8 @@ export default function KnowledgePage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+      {/* Main scrollable content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           {/* Error */}
           {error && (
@@ -252,16 +307,10 @@ export default function KnowledgePage() {
           {mode === 'chat' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {messages.length === 0 && (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    color: '#4a5568',
-                    padding: '60px 20px',
-                  }}
-                >
+                <div style={{ textAlign: 'center', padding: '60px 20px' }}>
                   <div style={{ fontSize: '3rem', marginBottom: '16px' }}>💬</div>
                   <p style={{ fontSize: '1.1rem', color: '#8892b0' }}>問我任何關於知識庫的問題！</p>
-                  <p style={{ fontSize: '0.9rem', marginTop: '8px' }}>
+                  <p style={{ fontSize: '0.9rem', color: '#4a5568', marginTop: '8px' }}>
                     請先在「文件」頁面上傳文件，然後開始提問
                   </p>
                 </div>
@@ -282,31 +331,38 @@ export default function KnowledgePage() {
                         msg.role === 'user'
                           ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                           : 'rgba(255,255,255,0.08)',
-                      borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                      borderRadius:
+                        msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                       padding: '14px 18px',
                       border: msg.role === 'assistant' ? '1px solid rgba(255,255,255,0.1)' : 'none',
                     }}
                   >
-                    <p
-                      style={{
-                        color: '#fff',
-                        margin: 0,
-                        lineHeight: 1.7,
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
-                      {msg.content}
-                    </p>
+                    {/* Message text */}
+                    {msg.content ? (
+                      <p
+                        style={{
+                          color: '#fff',
+                          margin: 0,
+                          lineHeight: 1.7,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {msg.content}
+                        {msg.streaming && <span className="streaming-cursor" />}
+                      </p>
+                    ) : (
+                      // Empty streaming placeholder
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8892b0' }}>
+                        <div className="spinner" />
+                        <span>Claude 思考中...</span>
+                      </div>
+                    )}
 
                     {/* Sources */}
                     {msg.sources && msg.sources.length > 0 && (
                       <details style={{ marginTop: '12px' }}>
                         <summary
-                          style={{
-                            color: '#64ffda',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                          }}
+                          style={{ color: '#64ffda', cursor: 'pointer', fontSize: '0.85rem' }}
                         >
                           📚 參考來源 ({msg.sources.length})
                         </summary>
@@ -341,23 +397,6 @@ export default function KnowledgePage() {
                 </div>
               ))}
 
-              {loading && (
-                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <div
-                    style={{
-                      background: 'rgba(255,255,255,0.08)',
-                      borderRadius: '16px 16px 16px 4px',
-                      padding: '14px 18px',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8892b0' }}>
-                      <div className="spinner" />
-                      <span>Claude 思考中...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -365,7 +404,6 @@ export default function KnowledgePage() {
           {/* Docs Mode */}
           {mode === 'docs' && (
             <div>
-              {/* Upload */}
               <div
                 style={{
                   background: 'rgba(255,255,255,0.05)',
@@ -390,7 +428,9 @@ export default function KnowledgePage() {
                     padding: '14px 32px',
                     borderRadius: '8px',
                     border: 'none',
-                    background: uploading ? '#4a5568' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    background: uploading
+                      ? '#4a5568'
+                      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                     color: '#fff',
                     fontSize: '1rem',
                     fontWeight: 600,
@@ -404,18 +444,11 @@ export default function KnowledgePage() {
                 </p>
               </div>
 
-              {/* Document List */}
               <h2 style={{ color: '#ccd6f6', fontSize: '1.2rem', marginBottom: '16px' }}>
                 已上傳文件 ({documents.length})
               </h2>
               {documents.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    color: '#4a5568',
-                    padding: '40px',
-                  }}
-                >
+                <div style={{ textAlign: 'center', color: '#4a5568', padding: '40px' }}>
                   <p>尚未上傳任何文件</p>
                 </div>
               ) : (
@@ -431,6 +464,7 @@ export default function KnowledgePage() {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
+                        gap: '12px',
                       }}
                     >
                       <div>
@@ -452,6 +486,7 @@ export default function KnowledgePage() {
                           color: '#fca5a5',
                           cursor: 'pointer',
                           fontSize: '0.85rem',
+                          flexShrink: 0,
                         }}
                       >
                         🗑️ 刪除
@@ -470,14 +505,17 @@ export default function KnowledgePage() {
         <div
           style={{
             padding: '16px 24px',
+            paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
             borderTop: '1px solid rgba(255,255,255,0.1)',
             background: 'rgba(0,0,0,0.2)',
+            flexShrink: 0,
           }}
         >
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
                 onClick={clearChat}
+                title="清除對話"
                 style={{
                   padding: '14px 16px',
                   borderRadius: '12px',
@@ -485,6 +523,7 @@ export default function KnowledgePage() {
                   background: 'transparent',
                   color: '#8892b0',
                   cursor: 'pointer',
+                  flexShrink: 0,
                 }}
               >
                 🗑️
@@ -494,7 +533,7 @@ export default function KnowledgePage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="輸入問題..."
+                placeholder={hasSession ? '繼續問…（Claude 記得上下文）' : '輸入問題...'}
                 disabled={loading}
                 style={{
                   flex: 1,
@@ -505,6 +544,7 @@ export default function KnowledgePage() {
                   color: '#fff',
                   fontSize: '1rem',
                   outline: 'none',
+                  minWidth: 0,
                 }}
               />
               <button
@@ -522,7 +562,8 @@ export default function KnowledgePage() {
                   fontSize: '1rem',
                   fontWeight: 600,
                   cursor: loading || !query.trim() ? 'not-allowed' : 'pointer',
-                  minWidth: '100px',
+                  minWidth: '80px',
+                  flexShrink: 0,
                 }}
               >
                 {loading ? '...' : '送出'}
@@ -540,10 +581,18 @@ export default function KnowledgePage() {
           border-top-color: #667eea;
           border-radius: 50%;
           animation: spin 1s linear infinite;
+          flex-shrink: 0;
         }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .streaming-cursor::after {
+          content: '▍';
+          display: inline-block;
+          animation: blink-cursor 0.8s step-end infinite;
+          color: #667eea;
+          margin-left: 2px;
         }
+        @keyframes blink-cursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
       `}</style>
     </div>
   );

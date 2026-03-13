@@ -207,9 +207,8 @@ export interface AskResult {
 }
 
 export async function askQuestion(question: string, topK = 5): Promise<AskResult> {
-  // 搜尋相關知識
   const relevantChunks = await searchKnowledge(question, topK);
-  
+
   if (relevantChunks.length === 0) {
     return {
       answer: '抱歉，知識庫中找不到與您問題相關的資料。請先上傳相關文件。',
@@ -217,7 +216,6 @@ export async function askQuestion(question: string, topK = 5): Promise<AskResult
     };
   }
 
-  // 組合 context
   const context = relevantChunks
     .map((chunk, i) => `[文件片段 ${i + 1}]\n${chunk}`)
     .join('\n\n');
@@ -225,14 +223,126 @@ export async function askQuestion(question: string, topK = 5): Promise<AskResult
   const prompt = ASK_PROMPT_TEMPLATE(question, context);
 
   try {
-    // 使用 Claude CLI 生成回答
     const answer = await callClaude(prompt, 60000);
-    return {
-      answer,
-      sources: relevantChunks,
-    };
+    return { answer, sources: relevantChunks };
   } catch (err) {
     console.error('[Claude] Ask question error:', err);
     throw err;
   }
+}
+
+// ===== 知識庫問答（Streaming via SSE） =====
+
+type SseEmitter = (event: string, data: unknown) => void;
+
+export async function askQuestionStream(
+  question: string,
+  topK: number,
+  sessionId: string | undefined,
+  onEvent: SseEmitter,
+): Promise<void> {
+  const relevantChunks = await searchKnowledge(question, topK);
+
+  if (relevantChunks.length === 0) {
+    onEvent('text', { text: '抱歉，知識庫中找不到與您問題相關的資料。請先上傳相關文件。' });
+    onEvent('done', { sessionId: null, sources: [] });
+    return;
+  }
+
+  const context = relevantChunks
+    .map((chunk, i) => `[文件片段 ${i + 1}]\n${chunk}`)
+    .join('\n\n');
+
+  const prompt = ASK_PROMPT_TEMPLATE(question, context);
+
+  const env = { ...process.env };
+  delete env.CLAUDECODE;
+  delete env.CLAUDE_CODE_SESSION_ID;
+  delete env.CLAUDE_CODE_ENTRYPOINT;
+
+  const args = [
+    '-p', '--dangerously-skip-permissions',
+    '--output-format', 'stream-json',
+    // Resume existing session so Claude remembers previous turns
+    ...(sessionId ? ['--resume', sessionId] : []),
+  ];
+
+  const proc = spawn('claude', args, { env });
+  proc.stdin.write(prompt);
+  proc.stdin.end();
+
+  let buffer = '';
+  let lastSentLength = 0;
+  let finalSessionId: string | null = sessionId ?? null;
+  let doneSent = false;
+
+  proc.stdout.on('data', (chunk: Buffer) => {
+    buffer += chunk.toString();
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const evt = JSON.parse(trimmed) as Record<string, unknown>;
+
+        // Capture session ID from any event that carries it
+        if (typeof evt.session_id === 'string') {
+          finalSessionId = evt.session_id;
+        }
+
+        // Stream text deltas from assistant messages
+        if (evt.type === 'assistant' && evt.message) {
+          const msg = evt.message as { content?: Array<{ type: string; text?: string }> };
+          const fullText = (msg.content ?? [])
+            .filter((b) => b.type === 'text')
+            .map((b) => b.text ?? '')
+            .join('');
+
+          if (fullText.length > lastSentLength) {
+            onEvent('text', { text: fullText.slice(lastSentLength) });
+            lastSentLength = fullText.length;
+          }
+        }
+
+        // Final result event — send 'done'
+        if (evt.type === 'result') {
+          // Fallback: if no text was streamed, use the result field
+          if (lastSentLength === 0 && typeof evt.result === 'string' && evt.result) {
+            onEvent('text', { text: evt.result });
+          }
+          onEvent('done', { sessionId: finalSessionId, sources: relevantChunks });
+          doneSent = true;
+        }
+      } catch {
+        // Non-JSON line, skip
+      }
+    }
+  });
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      proc.kill();
+      reject(new Error('Claude CLI timed out'));
+    }, 120_000);
+
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error(`Claude CLI exited with code ${code}`));
+        return;
+      }
+      // Guard: send 'done' if the result event never arrived
+      if (!doneSent) {
+        onEvent('done', { sessionId: finalSessionId, sources: relevantChunks });
+      }
+      resolve();
+    });
+
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
 }

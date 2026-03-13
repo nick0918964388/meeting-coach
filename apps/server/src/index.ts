@@ -4,7 +4,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import fastifyMultipart from '@fastify/multipart';
 import { handleWebSocket } from './websocket.js';
 import { addDocument, listDocuments, deleteDocument, searchKnowledge } from './knowledge.js';
-import { askQuestion, analyzeWithClaude } from './claude.js';
+import { askQuestion, askQuestionStream, analyzeWithClaude } from './claude.js';
 import { listMeetings, getMeeting, createMeeting, updateMeeting, deleteMeeting } from './meetings.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -82,7 +82,7 @@ async function main() {
     }
   });
 
-  // Knowledge base: ask (RAG with Claude CLI)
+  // Knowledge base: ask (RAG with Claude CLI — non-streaming, kept for backwards compat)
   app.post<{ Body: { question: string; limit?: number } }>('/api/ask', async (request, reply) => {
     const { question, limit = 5 } = request.body || {};
     if (!question) {
@@ -96,6 +96,44 @@ async function main() {
       return reply.status(500).send({ error: String(err) });
     }
   });
+
+  // Knowledge base: ask with streaming SSE + optional session resumption
+  app.get<{ Querystring: { question?: string; sessionId?: string; limit?: string } }>(
+    '/api/ask-stream',
+    (request, reply) => {
+      reply.hijack();
+      const res = reply.raw;
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no', // disable nginx buffering when behind a proxy
+      });
+
+      const { question, sessionId, limit } = request.query;
+
+      if (!question?.trim()) {
+        res.write(`event: fail\ndata: ${JSON.stringify({ message: 'Question is required' })}\n\n`);
+        res.end();
+        return;
+      }
+
+      const topK = Math.min(parseInt(limit ?? '5', 10), 10);
+
+      const sendEvent = (event: string, data: unknown) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      askQuestionStream(question.trim(), topK, sessionId || undefined, sendEvent)
+        .then(() => res.end())
+        .catch((err) => {
+          app.log.error(err);
+          sendEvent('fail', { message: String(err) });
+          res.end();
+        });
+    },
+  );
 
   // Test Coach endpoint (for debugging)
   app.post<{ Body: { transcript: string } }>('/api/test-coach', async (request, reply) => {
