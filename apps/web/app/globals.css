@@ -71,6 +71,17 @@ body {
   color: #555;
 }
 
+/* Bottom sheet animations */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* Timer pulse when recording */
 @keyframes timer-glow {
   0%, 100% { opacity: 1; }
