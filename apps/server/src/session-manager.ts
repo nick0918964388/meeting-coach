@@ -66,11 +66,15 @@ export async function startSession(meetingId: string): Promise<void> {
   delete env.CLAUDE_CODE_ENTRYPOINT;
 
   execFileSync('tmux', ['new-session', '-d', '-s', sName, '-x', '220', '-y', '50'], { env });
-  // Start Claude CLI using expect script to auto-confirm trust dialog
-  execFileSync('tmux', ['send-keys', '-t', sName, 'claude-interactive', 'Enter'], { env });
+  // Start Claude CLI
+  execFileSync('tmux', ['send-keys', '-t', sName, 'claude --dangerously-skip-permissions', 'Enter'], { env });
 
-  // Wait for Claude interactive prompt to be ready (expect handles trust dialog)
-  await sleep(6000);
+  // Wait for trust dialog to appear, then auto-confirm by sending Enter
+  await sleep(3000);
+  execFileSync('tmux', ['send-keys', '-t', sName, 'Enter'], { env });
+  
+  // Wait for Claude interactive prompt to be ready
+  await sleep(4000);
   console.log(`[Session] Started tmux session ${sName} for meeting ${meetingId}`);
 }
 
