@@ -69,9 +69,9 @@ export async function startSession(meetingId: string): Promise<void> {
   // Start Claude CLI
   execFileSync('tmux', ['send-keys', '-t', sName, 'claude --dangerously-skip-permissions', 'Enter'], { env });
 
-  // Wait for trust dialog to appear, then auto-confirm by sending Enter
+  // Wait for trust dialog to appear, then auto-confirm by sending Enter key
   await sleep(3000);
-  execFileSync('tmux', ['send-keys', '-t', sName, 'Enter'], { env });
+  execFileSync('tmux', ['send-keys', '-t', sName, '', 'Enter'], { env });
   
   // Wait for Claude interactive prompt to be ready
   await sleep(4000);
