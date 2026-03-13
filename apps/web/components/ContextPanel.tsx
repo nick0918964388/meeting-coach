@@ -265,7 +265,7 @@ export function ContextPanel({
         )}
 
         {/* Knowledge Base */}
-        <KnowledgePanel />
+        <KnowledgePanel meetingId={activeMeeting?.id ?? 'global'} />
       </div>
     </div>
   );
