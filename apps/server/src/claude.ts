@@ -265,57 +265,62 @@ async function _askQuestionStreamInternal(
   let doneSent = false;
   let sessionNotFound = false;
 
+  // Helper to process a single line of JSON output
+  const processLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    try {
+      const evt = JSON.parse(trimmed) as Record<string, unknown>;
+
+      // Capture session ID from any event that carries it
+      if (typeof evt.session_id === 'string') {
+        finalSessionId = evt.session_id;
+      }
+
+      // Check for "No conversation found" error
+      if (evt.type === 'result' && evt.is_error === true) {
+        const errors = evt.errors as string[] | undefined;
+        if (errors?.some((e) => e.includes('No conversation found'))) {
+          sessionNotFound = true;
+          console.warn('[Claude] Session not found, will retry without sessionId');
+        }
+      }
+
+      // Stream text deltas from assistant messages
+      if (evt.type === 'assistant' && evt.message) {
+        const msg = evt.message as { content?: Array<{ type: string; text?: string }> };
+        const fullText = (msg.content ?? [])
+          .filter((b) => b.type === 'text')
+          .map((b) => b.text ?? '')
+          .join('');
+
+        if (fullText.length > lastSentLength) {
+          onEvent('text', { text: fullText.slice(lastSentLength) });
+          lastSentLength = fullText.length;
+        }
+      }
+
+      // Final result event — send 'done' (only if not retrying)
+      if (evt.type === 'result' && !sessionNotFound) {
+        // Fallback: if no text was streamed, use the result field
+        if (lastSentLength === 0 && typeof evt.result === 'string' && evt.result) {
+          onEvent('text', { text: evt.result });
+        }
+        onEvent('done', { sessionId: finalSessionId, sources: relevantChunks });
+        doneSent = true;
+      }
+    } catch {
+      // Non-JSON line, skip
+    }
+  };
+
   proc.stdout.on('data', (chunk: Buffer) => {
     buffer += chunk.toString();
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try {
-        const evt = JSON.parse(trimmed) as Record<string, unknown>;
-
-        // Capture session ID from any event that carries it
-        if (typeof evt.session_id === 'string') {
-          finalSessionId = evt.session_id;
-        }
-
-        // Check for "No conversation found" error
-        if (evt.type === 'result' && evt.is_error === true) {
-          const errors = evt.errors as string[] | undefined;
-          if (errors?.some((e) => e.includes('No conversation found'))) {
-            sessionNotFound = true;
-            console.warn('[Claude] Session not found, will retry without sessionId');
-          }
-        }
-
-        // Stream text deltas from assistant messages
-        if (evt.type === 'assistant' && evt.message) {
-          const msg = evt.message as { content?: Array<{ type: string; text?: string }> };
-          const fullText = (msg.content ?? [])
-            .filter((b) => b.type === 'text')
-            .map((b) => b.text ?? '')
-            .join('');
-
-          if (fullText.length > lastSentLength) {
-            onEvent('text', { text: fullText.slice(lastSentLength) });
-            lastSentLength = fullText.length;
-          }
-        }
-
-        // Final result event — send 'done' (only if not retrying)
-        if (evt.type === 'result' && !sessionNotFound) {
-          // Fallback: if no text was streamed, use the result field
-          if (lastSentLength === 0 && typeof evt.result === 'string' && evt.result) {
-            onEvent('text', { text: evt.result });
-          }
-          onEvent('done', { sessionId: finalSessionId, sources: relevantChunks });
-          doneSent = true;
-        }
-      } catch {
-        // Non-JSON line, skip
-      }
+      processLine(line);
     }
   });
 
@@ -327,6 +332,11 @@ async function _askQuestionStreamInternal(
 
     proc.on('close', (code) => {
       clearTimeout(timer);
+      
+      // Process any remaining data in the buffer (last line without newline)
+      if (buffer.trim()) {
+        processLine(buffer);
+      }
       
       // If session not found, return for retry
       if (sessionNotFound) {
