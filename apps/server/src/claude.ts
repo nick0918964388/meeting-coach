@@ -184,10 +184,44 @@ export async function analyzeWithClaude(transcript: string, meetingId = 'global'
   });
 }
 
+// ===== 對話歷史管理 =====
+
+interface ConversationTurn {
+  q: string;
+  a: string;
+  ts: number;
+}
+
+const conversationHistory = new Map<string, ConversationTurn[]>();
+const MAX_HISTORY_TURNS = 10;
+
+function getHistory(meetingId: string): ConversationTurn[] {
+  return conversationHistory.get(meetingId) ?? [];
+}
+
+function addToHistory(meetingId: string, q: string, a: string): void {
+  const history = conversationHistory.get(meetingId) ?? [];
+  history.push({ q, a, ts: Date.now() });
+  if (history.length > MAX_HISTORY_TURNS) {
+    history.splice(0, history.length - MAX_HISTORY_TURNS);
+  }
+  conversationHistory.set(meetingId, history);
+}
+
+export function clearConversationHistory(meetingId: string): void {
+  conversationHistory.delete(meetingId);
+}
+
 // ===== 知識庫問答 =====
 
-const ASK_PROMPT_TEMPLATE = (question: string, context: string) => `你是一個專業的知識助理。根據以下參考文件回答用戶的問題。
+const ASK_PROMPT_TEMPLATE = (question: string, context: string, history: ConversationTurn[]) => {
+  const historySection = history.length > 0
+    ? `\n## 對話歷史（最近 ${history.length} 輪）\n${history.map((t, i) =>
+        `[第 ${i + 1} 輪]\n用戶：${t.q}\n助理：${t.a}`
+      ).join('\n\n')}\n`
+    : '';
 
+  return `你是一個專業的知識助理。根據以下參考文件回答用戶的問題。${historySection}
 ## 參考文件
 ${context}
 
@@ -199,8 +233,10 @@ ${question}
 - 如果文件中沒有相關資訊，請誠實說明
 - 回答要簡潔、有條理
 - 使用繁體中文回答
+- 如有對話歷史，請保持上下文連貫
 
 請回答：`;
+};
 
 export interface AskResult {
   answer: string;
@@ -221,10 +257,12 @@ export async function askQuestion(question: string, topK = 5, meetingId = 'globa
     .map((chunk, i) => `[文件片段 ${i + 1}]\n${chunk}`)
     .join('\n\n');
 
-  const prompt = ASK_PROMPT_TEMPLATE(question, context);
+  const history = getHistory(meetingId);
+  const prompt = ASK_PROMPT_TEMPLATE(question, context, history);
 
   try {
     const answer = await sendMessage(meetingId, prompt, 60_000);
+    addToHistory(meetingId, question, answer);
     return { answer, sources: relevantChunks };
   } catch (err) {
     console.error('[Claude] Ask question error:', err);
@@ -255,12 +293,16 @@ export async function askQuestionStream(
     .map((chunk, i) => `[文件片段 ${i + 1}]\n${chunk}`)
     .join('\n\n');
 
-  const prompt = ASK_PROMPT_TEMPLATE(question, context);
+  const history = getHistory(meetingId);
+  const prompt = ASK_PROMPT_TEMPLATE(question, context, history);
 
+  let fullAnswer = '';
   try {
     for await (const chunk of sendMessageStream(meetingId, prompt)) {
+      fullAnswer += chunk;
       onEvent('text', { text: chunk });
     }
+    addToHistory(meetingId, question, fullAnswer);
     onEvent('done', { sessionId: null, sources: relevantChunks });
   } catch (err) {
     console.error('[Claude] Stream error:', err);
