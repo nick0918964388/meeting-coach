@@ -185,12 +185,7 @@ export async function analyzeWithClaude(transcript: string): Promise<CoachMessag
 
 // ===== 知識庫問答 =====
 
-// Ollama API 配置
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
-const CHAT_MODEL = process.env.CHAT_MODEL || 'qwen3.5:4b';
-
-const ASK_PROMPT_TEMPLATE = (question: string, context: string) => `/no_think
-你是一個專業的知識助理。根據以下參考文件回答用戶的問題。
+const ASK_PROMPT_TEMPLATE = (question: string, context: string) => `你是一個專業的知識助理。根據以下參考文件回答用戶的問題。
 
 ## 參考文件
 ${context}
@@ -209,26 +204,6 @@ ${question}
 export interface AskResult {
   answer: string;
   sources: string[];
-}
-
-// 使用 Ollama API 生成回答
-async function callOllama(prompt: string): Promise<string> {
-  const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: CHAT_MODEL,
-      prompt,
-      stream: false,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Ollama API error: ${res.status}`);
-  }
-
-  const data = await res.json() as { response?: string };
-  return data.response || '';
 }
 
 export async function askQuestion(question: string, topK = 5): Promise<AskResult> {
@@ -250,13 +225,14 @@ export async function askQuestion(question: string, topK = 5): Promise<AskResult
   const prompt = ASK_PROMPT_TEMPLATE(question, context);
 
   try {
-    const answer = await callOllama(prompt);
+    // 使用 Claude CLI 生成回答
+    const answer = await callClaude(prompt, 60000);
     return {
       answer,
       sources: relevantChunks,
     };
   } catch (err) {
-    console.error('[Ollama] Ask question error:', err);
+    console.error('[Claude] Ask question error:', err);
     throw err;
   }
 }
