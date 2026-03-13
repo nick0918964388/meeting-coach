@@ -111,6 +111,7 @@ export default function Home() {
       <div style={{ background: '#1e293b', color: '#94a3b8', fontSize: '11px', padding: '4px 12px', fontFamily: 'monospace', flexShrink: 0, display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
         <span>mime: <span style={{ color: '#38bdf8' }}>{recorder.mimeType}</span></span>
         <span>state: <span style={{ color: '#4ade80' }}>{recorder.recordingState}</span></span>
+        <span>chunks: <span style={{ color: '#facc15' }}>{recorder.chunkCount}</span></span>
         <span>error: <span style={{ color: recorder.error ? '#f87171' : '#64748b' }}>{recorder.error || 'none'}</span></span>
       </div>
 

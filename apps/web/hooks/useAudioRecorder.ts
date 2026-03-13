@@ -8,6 +8,7 @@ export interface UseAudioRecorderReturn {
   recordingState: RecordingState;
   audioLevel: number;
   mimeType: string;
+  chunkCount: number;
   start: () => Promise<void>;
   stop: () => void;
   pause: () => void;
@@ -28,6 +29,7 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState<string>('audio/webm');
+  const [chunkCount, setChunkCount] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -84,7 +86,9 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = async (event) => {
+        console.log('[Recorder] ondataavailable size:', event.data.size);
         if (event.data.size > 0) {
+          setChunkCount((c) => c + 1);
           const buffer = await event.data.arrayBuffer();
           onChunk(buffer);
         }
@@ -133,5 +137,5 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     }
   }, [updateAudioLevel]);
 
-  return { recordingState, audioLevel, mimeType, start, stop, pause, resume, error };
+  return { recordingState, audioLevel, mimeType, chunkCount, start, stop, pause, resume, error };
 }
