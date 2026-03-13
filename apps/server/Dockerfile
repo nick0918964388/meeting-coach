@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
       python3 \
       python3-pip \
+      tmux \
     && pip3 install faster-whisper --break-system-packages \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /root/.cache/pip

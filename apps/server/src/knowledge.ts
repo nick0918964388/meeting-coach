@@ -8,8 +8,7 @@ import mammoth from 'mammoth';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const EMBED_MODEL = process.env.EMBED_MODEL || 'nomic-embed-text';
 
-const DATA_DIR = path.join(process.cwd(), '.knowledge');
-const INDEX_FILE = path.join(DATA_DIR, 'index.json');
+const BASE_DATA_DIR = path.join(process.cwd(), '.knowledge');
 
 interface DocRecord {
   id: string;
@@ -31,24 +30,34 @@ interface KnowledgeStore {
   chunks: ChunkRecord[];
 }
 
-// Ensure data dir exists
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+function dataDir(meetingId: string): string {
+  return path.join(BASE_DATA_DIR, meetingId);
 }
 
-function loadStore(): KnowledgeStore {
-  ensureDir();
-  if (!fs.existsSync(INDEX_FILE)) return { docs: [], chunks: [] };
+function indexFile(meetingId: string): string {
+  return path.join(dataDir(meetingId), 'index.json');
+}
+
+// Ensure data dir exists
+function ensureDir(meetingId: string) {
+  const dir = dataDir(meetingId);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function loadStore(meetingId: string): KnowledgeStore {
+  ensureDir(meetingId);
+  const file = indexFile(meetingId);
+  if (!fs.existsSync(file)) return { docs: [], chunks: [] };
   try {
-    return JSON.parse(fs.readFileSync(INDEX_FILE, 'utf-8'));
+    return JSON.parse(fs.readFileSync(file, 'utf-8'));
   } catch {
     return { docs: [], chunks: [] };
   }
 }
 
-function saveStore(store: KnowledgeStore) {
-  ensureDir();
-  fs.writeFileSync(INDEX_FILE, JSON.stringify(store, null, 2), 'utf-8');
+function saveStore(store: KnowledgeStore, meetingId: string) {
+  ensureDir(meetingId);
+  fs.writeFileSync(indexFile(meetingId), JSON.stringify(store, null, 2), 'utf-8');
 }
 
 // Ollama embedding - 768 dimensions for nomic-embed-text
@@ -174,13 +183,13 @@ async function parseContent(filename: string, buffer: Buffer): Promise<string> {
   return buffer.toString('utf-8');
 }
 
-export async function addDocument(filename: string, buffer: Buffer): Promise<DocRecord> {
-  const store = loadStore();
+export async function addDocument(filename: string, buffer: Buffer, meetingId = 'global'): Promise<DocRecord> {
+  const store = loadStore(meetingId);
   const id = crypto.randomUUID();
   const content = await parseContent(filename, buffer);
   const chunks = chunk(content);
 
-  console.log(`[Knowledge] Embedding ${chunks.length} chunks with ${EMBED_MODEL}...`);
+  console.log(`[Knowledge/${meetingId}] Embedding ${chunks.length} chunks with ${EMBED_MODEL}...`);
 
   // Embed all chunks (parallel with concurrency limit)
   const chunkRecords: ChunkRecord[] = [];
@@ -208,31 +217,31 @@ export async function addDocument(filename: string, buffer: Buffer): Promise<Doc
 
   store.docs.push(doc);
   store.chunks.push(...chunkRecords);
-  saveStore(store);
-  
-  console.log(`[Knowledge] Added ${filename}: ${chunkRecords.length} chunks indexed`);
+  saveStore(store, meetingId);
+
+  console.log(`[Knowledge/${meetingId}] Added ${filename}: ${chunkRecords.length} chunks indexed`);
   return doc;
 }
 
-export function listDocuments(): DocRecord[] {
-  return loadStore().docs;
+export function listDocuments(meetingId = 'global'): DocRecord[] {
+  return loadStore(meetingId).docs;
 }
 
-export function deleteDocument(id: string): boolean {
-  const store = loadStore();
+export function deleteDocument(id: string, meetingId = 'global'): boolean {
+  const store = loadStore(meetingId);
   const before = store.docs.length;
   store.docs = store.docs.filter((d) => d.id !== id);
   store.chunks = store.chunks.filter((c) => c.docId !== id);
   if (store.docs.length < before) {
-    saveStore(store);
+    saveStore(store, meetingId);
     return true;
   }
   return false;
 }
 
 // Async search with Ollama embedding
-export async function searchKnowledge(query: string, topK = 5): Promise<string[]> {
-  const store = loadStore();
+export async function searchKnowledge(query: string, topK = 5, meetingId = 'global'): Promise<string[]> {
+  const store = loadStore(meetingId);
   if (store.chunks.length === 0) return [];
 
   const qVec = await embed(query);
@@ -249,8 +258,8 @@ export async function searchKnowledge(query: string, topK = 5): Promise<string[]
 }
 
 // Sync version for backward compatibility (uses cached vectors only)
-export function searchKnowledgeSync(query: string, topK = 5): string[] {
-  const store = loadStore();
+export function searchKnowledgeSync(query: string, topK = 5, meetingId = 'global'): string[] {
+  const store = loadStore(meetingId);
   if (store.chunks.length === 0) return [];
 
   // Use fallback embedding for sync search

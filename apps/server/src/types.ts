@@ -2,6 +2,7 @@ export interface SessionState {
   id: string;
   isRecording: boolean;
   language: string;
+  meetingId: string;
   transcriptBuffer: string;
   fullTranscript: string;
   lastAnalysisTime: number;

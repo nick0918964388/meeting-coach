@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import type { CoachMessage } from '@meeting-coach/shared';
-import { searchKnowledge, searchKnowledgeSync } from './knowledge.js';
+import { searchKnowledge } from './knowledge.js';
+import { sendMessage, sendMessageStream } from './session-manager.js';
 
 // 文字修正 prompt
 const CLEAN_TRANSCRIPT_PROMPT = (rawText: string) => `你是專業的語音轉文字後處理專家。
@@ -96,9 +97,9 @@ ${transcript}
 
 只輸出 JSON，不要其他說明。`;
 
-export async function analyzeWithClaude(transcript: string): Promise<CoachMessage> {
+export async function analyzeWithClaude(transcript: string, meetingId = 'global'): Promise<CoachMessage> {
   // Search knowledge base for relevant context (async with Ollama embedding)
-  const relevantChunks = await searchKnowledge(transcript, 4);
+  const relevantChunks = await searchKnowledge(transcript, 4, meetingId);
   const context = relevantChunks.length > 0 ? relevantChunks.join('\n\n') : undefined;
   const prompt = CLAUDE_PROMPT_TEMPLATE(transcript, context);
 
@@ -206,8 +207,8 @@ export interface AskResult {
   sources: string[];
 }
 
-export async function askQuestion(question: string, topK = 5): Promise<AskResult> {
-  const relevantChunks = await searchKnowledge(question, topK);
+export async function askQuestion(question: string, topK = 5, meetingId = 'global'): Promise<AskResult> {
+  const relevantChunks = await searchKnowledge(question, topK, meetingId);
 
   if (relevantChunks.length === 0) {
     return {
@@ -223,7 +224,7 @@ export async function askQuestion(question: string, topK = 5): Promise<AskResult
   const prompt = ASK_PROMPT_TEMPLATE(question, context);
 
   try {
-    const answer = await callClaude(prompt, 60000);
+    const answer = await sendMessage(meetingId, prompt, 60_000);
     return { answer, sources: relevantChunks };
   } catch (err) {
     console.error('[Claude] Ask question error:', err);
@@ -235,140 +236,14 @@ export async function askQuestion(question: string, topK = 5): Promise<AskResult
 
 type SseEmitter = (event: string, data: unknown) => void;
 
-// Internal streaming implementation
-async function _askQuestionStreamInternal(
-  prompt: string,
-  relevantChunks: string[],
-  sessionId: string | undefined,
-  onEvent: SseEmitter,
-): Promise<{ success: boolean; sessionNotFound: boolean }> {
-  const env = { ...process.env };
-  delete env.CLAUDECODE;
-  delete env.CLAUDE_CODE_SESSION_ID;
-  delete env.CLAUDE_CODE_ENTRYPOINT;
-
-  const args = [
-    '-p', '--dangerously-skip-permissions',
-    '--verbose',  // Required for stream-json with -p flag
-    '--output-format', 'stream-json',
-    // Resume existing session so Claude remembers previous turns
-    ...(sessionId ? ['--resume', sessionId] : []),
-  ];
-
-  const proc = spawn('claude', args, { env });
-  proc.stdin.write(prompt);
-  proc.stdin.end();
-
-  let buffer = '';
-  let lastSentLength = 0;
-  let finalSessionId: string | null = sessionId ?? null;
-  let doneSent = false;
-  let sessionNotFound = false;
-
-  // Helper to process a single line of JSON output
-  const processLine = (line: string) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    try {
-      const evt = JSON.parse(trimmed) as Record<string, unknown>;
-
-      // Capture session ID from any event that carries it
-      if (typeof evt.session_id === 'string') {
-        finalSessionId = evt.session_id;
-      }
-
-      // Check for "No conversation found" error
-      if (evt.type === 'result' && evt.is_error === true) {
-        const errors = evt.errors as string[] | undefined;
-        if (errors?.some((e) => e.includes('No conversation found'))) {
-          sessionNotFound = true;
-          console.warn('[Claude] Session not found, will retry without sessionId');
-        }
-      }
-
-      // Stream text deltas from assistant messages
-      if (evt.type === 'assistant' && evt.message) {
-        const msg = evt.message as { content?: Array<{ type: string; text?: string }> };
-        const fullText = (msg.content ?? [])
-          .filter((b) => b.type === 'text')
-          .map((b) => b.text ?? '')
-          .join('');
-
-        if (fullText.length > lastSentLength) {
-          onEvent('text', { text: fullText.slice(lastSentLength) });
-          lastSentLength = fullText.length;
-        }
-      }
-
-      // Final result event — send 'done' (only if not retrying)
-      if (evt.type === 'result' && !sessionNotFound) {
-        // Fallback: if no text was streamed, use the result field
-        if (lastSentLength === 0 && typeof evt.result === 'string' && evt.result) {
-          onEvent('text', { text: evt.result });
-        }
-        onEvent('done', { sessionId: finalSessionId, sources: relevantChunks });
-        doneSent = true;
-      }
-    } catch {
-      // Non-JSON line, skip
-    }
-  };
-
-  proc.stdout.on('data', (chunk: Buffer) => {
-    buffer += chunk.toString();
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-
-    for (const line of lines) {
-      processLine(line);
-    }
-  });
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      proc.kill();
-      reject(new Error('Claude CLI timed out'));
-    }, 120_000);
-
-    proc.on('close', (code) => {
-      clearTimeout(timer);
-      
-      // Process any remaining data in the buffer (last line without newline)
-      if (buffer.trim()) {
-        processLine(buffer);
-      }
-      
-      // If session not found, return for retry
-      if (sessionNotFound) {
-        resolve({ success: false, sessionNotFound: true });
-        return;
-      }
-      
-      if (code !== 0) {
-        reject(new Error(`Claude CLI exited with code ${code}`));
-        return;
-      }
-      // Guard: send 'done' if the result event never arrived
-      if (!doneSent) {
-        onEvent('done', { sessionId: finalSessionId, sources: relevantChunks });
-      }
-      resolve({ success: true, sessionNotFound: false });
-    });
-
-    proc.on('error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
-}
-
 export async function askQuestionStream(
   question: string,
   topK: number,
-  sessionId: string | undefined,
+  _sessionId: string | undefined, // kept for API compatibility; sessions now managed via tmux
   onEvent: SseEmitter,
+  meetingId = 'global',
 ): Promise<void> {
-  const relevantChunks = await searchKnowledge(question, topK);
+  const relevantChunks = await searchKnowledge(question, topK, meetingId);
 
   if (relevantChunks.length === 0) {
     onEvent('text', { text: '抱歉，知識庫中找不到與您問題相關的資料。請先上傳相關文件。' });
@@ -382,12 +257,13 @@ export async function askQuestionStream(
 
   const prompt = ASK_PROMPT_TEMPLATE(question, context);
 
-  // First attempt with sessionId (if provided)
-  const result = await _askQuestionStreamInternal(prompt, relevantChunks, sessionId, onEvent);
-  
-  // If session not found, retry without sessionId
-  if (!result.success && result.sessionNotFound && sessionId) {
-    console.log('[Claude] Retrying without sessionId...');
-    await _askQuestionStreamInternal(prompt, relevantChunks, undefined, onEvent);
+  try {
+    for await (const chunk of sendMessageStream(meetingId, prompt)) {
+      onEvent('text', { text: chunk });
+    }
+    onEvent('done', { sessionId: null, sources: relevantChunks });
+  } catch (err) {
+    console.error('[Claude] Stream error:', err);
+    onEvent('fail', { message: String(err) });
   }
 }

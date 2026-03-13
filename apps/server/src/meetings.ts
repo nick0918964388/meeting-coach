@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { startSession, stopSession } from './session-manager.js';
 
 const DATA_DIR = path.join(process.cwd(), '.meetings');
 const FILE = path.join(DATA_DIR, 'meetings.json');
@@ -58,6 +59,10 @@ export function createMeeting(title: string): Meeting {
   };
   meetings.push(meeting);
   save(meetings);
+  // Start persistent Claude session for this meeting (non-blocking)
+  startSession(meeting.id).catch((err) =>
+    console.error(`[Meeting] Failed to start session for ${meeting.id}:`, err),
+  );
   return meeting;
 }
 
@@ -75,5 +80,14 @@ export function deleteMeeting(id: string): boolean {
   const next = meetings.filter((m) => m.id !== id);
   if (next.length === meetings.length) return false;
   save(next);
+  // Stop tmux session and clean up knowledge base directory (non-blocking)
+  stopSession(id).catch((err) =>
+    console.error(`[Meeting] Failed to stop session for ${id}:`, err),
+  );
+  const knowledgeDir = path.join(process.cwd(), '.knowledge', id);
+  if (fs.existsSync(knowledgeDir)) {
+    fs.rmSync(knowledgeDir, { recursive: true, force: true });
+    console.log(`[Meeting] Deleted knowledge dir for ${id}`);
+  }
   return true;
 }

@@ -108,7 +108,7 @@ async function triggerAnalysis(ws: WebSocket, session: SessionState): Promise<vo
 
   try {
     console.log(`[Claude] Analyzing ${countWords(textToAnalyze)} words...`);
-    const coaching = await analyzeWithClaude(textToAnalyze);
+    const coaching = await analyzeWithClaude(textToAnalyze, session.meetingId);
     send(ws, coaching);
 
     // Reset buffer after analysis, keep full transcript
@@ -124,6 +124,7 @@ export function handleWebSocket(ws: WebSocket): void {
     id: Math.random().toString(36).slice(2),
     isRecording: false,
     language: 'zh',
+    meetingId: 'global',
     transcriptBuffer: '',
     fullTranscript: '',
     lastAnalysisTime: Date.now(),
@@ -172,6 +173,7 @@ export function handleWebSocket(ws: WebSocket): void {
         case 'start':
           session.isRecording = true;
           session.language = msg.config?.language || 'zh';
+          session.meetingId = msg.config?.meetingId || 'global';
           session.transcriptBuffer = '';
           session.fullTranscript = '';
           session.lastAnalysisTime = Date.now();

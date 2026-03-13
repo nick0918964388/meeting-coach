@@ -32,8 +32,9 @@ async function main() {
   });
 
   // Knowledge base: upload
-  app.post('/api/knowledge/upload', async (request, reply) => {
+  app.post<{ Querystring: { meetingId?: string } }>('/api/knowledge/upload', async (request, reply) => {
     try {
+      const meetingId = request.query.meetingId || 'global';
       const data = await request.file();
       if (!data) {
         return reply.status(400).send({ error: 'No file provided' });
@@ -43,7 +44,7 @@ async function main() {
         chunks.push(chunk);
       }
       const buffer = Buffer.concat(chunks);
-      const doc = await addDocument(data.filename, buffer);
+      const doc = await addDocument(data.filename, buffer, meetingId);
       return reply.send({ success: true, document: doc });
     } catch (err) {
       app.log.error(err);
@@ -52,15 +53,17 @@ async function main() {
   });
 
   // Knowledge base: list
-  app.get('/api/knowledge/list', async () => {
-    const documents = listDocuments();
+  app.get<{ Querystring: { meetingId?: string } }>('/api/knowledge/list', async (request) => {
+    const meetingId = request.query.meetingId || 'global';
+    const documents = listDocuments(meetingId);
     return { documents };
   });
 
   // Knowledge base: delete
-  app.delete<{ Params: { id: string } }>('/api/knowledge/:id', async (request, reply) => {
+  app.delete<{ Params: { id: string }; Querystring: { meetingId?: string } }>('/api/knowledge/:id', async (request, reply) => {
     const { id } = request.params;
-    const deleted = deleteDocument(id);
+    const meetingId = request.query.meetingId || 'global';
+    const deleted = deleteDocument(id, meetingId);
     if (!deleted) {
       return reply.status(404).send({ error: 'Document not found' });
     }
@@ -68,13 +71,13 @@ async function main() {
   });
 
   // Knowledge base: search (vector search only)
-  app.post<{ Body: { query: string; limit?: number } }>('/api/knowledge/search', async (request, reply) => {
-    const { query, limit = 5 } = request.body || {};
+  app.post<{ Body: { query: string; limit?: number; meetingId?: string } }>('/api/knowledge/search', async (request, reply) => {
+    const { query, limit = 5, meetingId = 'global' } = request.body || {};
     if (!query) {
       return reply.status(400).send({ error: 'Query is required' });
     }
     try {
-      const results = await searchKnowledge(query, limit);
+      const results = await searchKnowledge(query, limit, meetingId);
       return { query, results };
     } catch (err) {
       app.log.error(err);
@@ -83,13 +86,13 @@ async function main() {
   });
 
   // Knowledge base: ask (RAG with Claude CLI — non-streaming, kept for backwards compat)
-  app.post<{ Body: { question: string; limit?: number } }>('/api/ask', async (request, reply) => {
-    const { question, limit = 5 } = request.body || {};
+  app.post<{ Body: { question: string; limit?: number; meetingId?: string } }>('/api/ask', async (request, reply) => {
+    const { question, limit = 5, meetingId = 'global' } = request.body || {};
     if (!question) {
       return reply.status(400).send({ error: 'Question is required' });
     }
     try {
-      const result = await askQuestion(question, limit);
+      const result = await askQuestion(question, limit, meetingId);
       return result;
     } catch (err) {
       app.log.error(err);
@@ -98,7 +101,7 @@ async function main() {
   });
 
   // Knowledge base: ask with streaming SSE + optional session resumption
-  app.get<{ Querystring: { question?: string; sessionId?: string; limit?: string } }>(
+  app.get<{ Querystring: { question?: string; sessionId?: string; limit?: string; meetingId?: string } }>(
     '/api/ask-stream',
     (request, reply) => {
       reply.hijack();
@@ -111,7 +114,7 @@ async function main() {
         'X-Accel-Buffering': 'no', // disable nginx buffering when behind a proxy
       });
 
-      const { question, sessionId, limit } = request.query;
+      const { question, sessionId, limit, meetingId = 'global' } = request.query;
 
       if (!question?.trim()) {
         res.write(`event: fail\ndata: ${JSON.stringify({ message: 'Question is required' })}\n\n`);
@@ -125,7 +128,7 @@ async function main() {
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
       };
 
-      askQuestionStream(question.trim(), topK, sessionId || undefined, sendEvent)
+      askQuestionStream(question.trim(), topK, sessionId || undefined, sendEvent, meetingId)
         .then(() => res.end())
         .catch((err) => {
           app.log.error(err);

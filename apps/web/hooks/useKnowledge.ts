@@ -13,14 +13,14 @@ export interface KnowledgeDoc {
 // Use relative path so Next.js rewrites proxy to backend
 const SERVER = '';
 
-export function useKnowledge() {
+export function useKnowledge(meetingId = 'global') {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchDocs = useCallback(async () => {
     try {
-      const res = await fetch(`${SERVER}/api/knowledge/list`);
+      const res = await fetch(`${SERVER}/api/knowledge/list?meetingId=${encodeURIComponent(meetingId)}`);
       if (res.ok) {
         const data = await res.json();
         setDocs(data.documents || []);
@@ -28,7 +28,7 @@ export function useKnowledge() {
     } catch {
       // server may not be running yet
     }
-  }, []);
+  }, [meetingId]);
 
   useEffect(() => {
     fetchDocs();
@@ -41,7 +41,7 @@ export function useKnowledge() {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        const res = await fetch(`${SERVER}/api/knowledge/upload`, {
+        const res = await fetch(`${SERVER}/api/knowledge/upload?meetingId=${encodeURIComponent(meetingId)}`, {
           method: 'POST',
           body: formData,
         });
@@ -56,19 +56,19 @@ export function useKnowledge() {
         setUploading(false);
       }
     },
-    [fetchDocs]
+    [meetingId, fetchDocs]
   );
 
   const remove = useCallback(
     async (id: string) => {
       try {
-        await fetch(`${SERVER}/api/knowledge/${id}`, { method: 'DELETE' });
+        await fetch(`${SERVER}/api/knowledge/${id}?meetingId=${encodeURIComponent(meetingId)}`, { method: 'DELETE' });
         setDocs((prev) => prev.filter((d) => d.id !== id));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Delete failed');
       }
     },
-    []
+    [meetingId]
   );
 
   return { docs, uploading, error, upload, remove, refresh: fetchDocs };

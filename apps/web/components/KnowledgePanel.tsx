@@ -12,8 +12,12 @@ function fileIcon(filename: string): string {
   return '📎';
 }
 
-export function KnowledgePanel() {
-  const { docs, uploading, error, upload, remove } = useKnowledge();
+interface KnowledgePanelProps {
+  meetingId?: string;
+}
+
+export function KnowledgePanel({ meetingId = 'global' }: KnowledgePanelProps) {
+  const { docs, uploading, error, upload, remove } = useKnowledge(meetingId);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
