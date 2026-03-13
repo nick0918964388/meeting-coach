@@ -7,6 +7,7 @@ export type RecordingState = 'idle' | 'recording' | 'paused';
 export interface UseAudioRecorderReturn {
   recordingState: RecordingState;
   audioLevel: number;
+  mimeType: string;
   start: () => Promise<void>;
   stop: () => void;
   pause: () => void;
@@ -26,6 +27,7 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [mimeType, setMimeType] = useState<string>('audio/webm');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -65,13 +67,17 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
       analyserRef.current = analyser;
 
       // Set up MediaRecorder for chunked recording
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      // Priority: webm/opus > webm > mp4 (iOS Safari) > ogg
+      const detectedMimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm')
         ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
         : 'audio/ogg';
 
-      const recorder = new MediaRecorder(stream, { mimeType });
+      setMimeType(detectedMimeType);
+      const recorder = new MediaRecorder(stream, { mimeType: detectedMimeType });
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = async (event) => {
@@ -124,5 +130,5 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     }
   }, [updateAudioLevel]);
 
-  return { recordingState, audioLevel, start, stop, pause, resume, error };
+  return { recordingState, audioLevel, mimeType, start, stop, pause, resume, error };
 }

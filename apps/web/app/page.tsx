@@ -67,7 +67,7 @@ export default function Home() {
   const handleStart = useCallback(async () => {
     try {
       await recorder.start();
-      sendJson({ type: 'start', config: { language: 'zh' } });
+      sendJson({ type: 'start', config: { language: 'zh', mimeType: recorder.mimeType } });
     } catch (err) {
       console.error('[Start]', err);
     }

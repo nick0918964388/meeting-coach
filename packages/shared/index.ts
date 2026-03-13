@@ -6,6 +6,7 @@ export interface StartMessage {
   config: {
     language: string;
     meetingId?: string;
+    mimeType?: string;
   };
 }
 
