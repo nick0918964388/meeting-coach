@@ -160,65 +160,71 @@ export function handleWebSocket(ws: WebSocket): void {
   }
 
   ws.on('message', async (raw) => {
+    console.log('[WS] Received message type:', typeof raw, 'isBuffer:', raw instanceof Buffer, 'length:', (raw as any).length ?? (raw as any).byteLength ?? 0);
+
+    // Try to parse as JSON first (binaryType='arraybuffer' makes all messages arrive as Buffer)
     try {
-      console.log('[WS] Received message type:', typeof raw, 'isBuffer:', raw instanceof Buffer, 'length:', (raw as any).length ?? (raw as any).byteLength ?? 0);
-      // Handle binary audio data directly
-      if (raw instanceof Buffer) {
-        if (session.isRecording) {
-          audioAccumulator.push(raw);
-          scheduleFlush();
+      const text = raw.toString();
+      const msg: ClientMessage = JSON.parse(text);
+      if (msg && msg.type) {
+        console.log('[WS] JSON message:', JSON.stringify(msg));
+        switch (msg.type) {
+          case 'start':
+            session.isRecording = true;
+            session.language = msg.config?.language || 'zh';
+            session.meetingId = msg.config?.meetingId || 'global';
+            session.mimeType = msg.config?.mimeType || 'audio/webm';
+            console.log('[WS] Start recording, mimeType:', msg.config?.mimeType);
+            session.transcriptBuffer = '';
+            session.fullTranscript = '';
+            session.lastAnalysisTime = Date.now();
+            audioAccumulator = [];
+            sendStatus(ws, 'recording');
+            console.log(`[WS] ${session.id}: Recording started (lang: ${session.language})`);
+            break;
+
+          case 'audio':
+            if (session.isRecording) {
+              // Handle base64 encoded audio
+              const data = typeof msg.data === 'string'
+                ? Buffer.from(msg.data, 'base64')
+                : Buffer.from(msg.data as ArrayBuffer);
+              audioAccumulator.push(data);
+              scheduleFlush();
+            }
+            break;
+
+          case 'stop':
+            session.isRecording = false;
+            if (flushTimer) {
+              clearTimeout(flushTimer);
+              flushTimer = null;
+            }
+            await flushAudio();
+            // Final analysis
+            if (session.transcriptBuffer.trim()) {
+              await triggerAnalysis(ws, session);
+            }
+            sendStatus(ws, 'idle');
+            console.log(`[WS] ${session.id}: Recording stopped`);
+            break;
+
+          case 'ping':
+            send(ws, { type: 'pong' } as ServerMessage);
+            break;
         }
         return;
       }
+    } catch {
+      // Not JSON — treat as binary audio data
+    }
 
-      const msg: ClientMessage = JSON.parse(raw.toString());
-      console.log('[WS] JSON message:', JSON.stringify(msg));
-
-      switch (msg.type) {
-        case 'start':
-          session.isRecording = true;
-          session.language = msg.config?.language || 'zh';
-          session.meetingId = msg.config?.meetingId || 'global';
-          session.mimeType = msg.config?.mimeType || 'audio/webm';
-          console.log('[WS] Start recording, mimeType:', msg.config?.mimeType);
-          session.transcriptBuffer = '';
-          session.fullTranscript = '';
-          session.lastAnalysisTime = Date.now();
-          audioAccumulator = [];
-          sendStatus(ws, 'recording');
-          console.log(`[WS] ${session.id}: Recording started (lang: ${session.language})`);
-          break;
-
-        case 'audio':
-          if (session.isRecording) {
-            // Handle base64 encoded audio
-            const data = typeof msg.data === 'string'
-              ? Buffer.from(msg.data, 'base64')
-              : Buffer.from(msg.data as ArrayBuffer);
-            audioAccumulator.push(data);
-            scheduleFlush();
-          }
-          break;
-
-        case 'stop':
-          session.isRecording = false;
-          if (flushTimer) {
-            clearTimeout(flushTimer);
-            flushTimer = null;
-          }
-          await flushAudio();
-          // Final analysis
-          if (session.transcriptBuffer.trim()) {
-            await triggerAnalysis(ws, session);
-          }
-          sendStatus(ws, 'idle');
-          console.log(`[WS] ${session.id}: Recording stopped`);
-          break;
-
-        case 'ping':
-          // Keep-alive ping from client
-          send(ws, { type: 'pong' } as ServerMessage);
-          break;
+    // Binary audio data
+    try {
+      const buf = raw instanceof Buffer ? raw : Buffer.from(raw as ArrayBuffer);
+      if (session.isRecording) {
+        audioAccumulator.push(buf);
+        scheduleFlush();
       }
     } catch (err) {
       console.error('[WS] Message handling error:', err);
