@@ -37,13 +37,13 @@ function IconBtn({ icon, onClick, title, bg, disabled }: IconBtnProps) {
       disabled={disabled}
       title={title}
       style={{
-        width: '34px',
-        height: '34px',
+        width: '40px',
+        height: '40px',
         borderRadius: '50%',
         border: 'none',
         background: disabled ? '#e5e7eb' : bg,
         color: disabled ? '#9ca3af' : '#fff',
-        fontSize: '15px',
+        fontSize: '16px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -89,12 +89,13 @@ export function Header({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 20px',
+        padding: '0 12px',
         flexShrink: 0,
+        gap: '8px',
       }}
     >
       {/* Left: Title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         <div
           style={{
             width: '26px',
@@ -107,17 +108,18 @@ export function Header({
             fontSize: '12px',
             fontWeight: 'bold',
             color: '#fff',
+            flexShrink: 0,
           }}
         >
           M
         </div>
-        <span style={{ color: '#1a1a1a', fontWeight: 600, fontSize: '14px' }}>
+        <span className="hidden sm:inline" style={{ color: '#1a1a1a', fontWeight: 600, fontSize: '14px' }}>
           Meeting Transcriber
         </span>
       </div>
 
       {/* Center: Record controls + audio level + timer + status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'center' }}>
         {/* Circular control buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {/* ⏺ Record — active only when idle */}
@@ -146,14 +148,14 @@ export function Header({
           />
         </div>
 
-        {/* Audio level visualizer - pulsing rings */}
+        {/* Audio level visualizer - pulsing rings (hidden on mobile) */}
         {isRecording && (
           <div
+            className="hidden sm:flex"
             style={{
               position: 'relative',
               width: '40px',
               height: '40px',
-              display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -193,9 +195,10 @@ export function Header({
           </div>
         )}
         
-        {/* Audio level bar (shown when paused) */}
+        {/* Audio level bar (shown when paused, hidden on mobile) */}
         {isPaused && (
           <div
+            className="hidden sm:block"
             style={{
               width: '48px',
               height: '3px',
@@ -218,21 +221,18 @@ export function Header({
 
         {/* Timer */}
         <span
-          className={isRecording ? 'timer-recording' : ''}
+          className={`font-mono font-bold leading-none text-xl sm:text-3xl ${isRecording ? 'timer-recording' : ''}`}
           style={{
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: '30px',
-            fontWeight: 'bold',
             color: isRecording ? '#ef4444' : isPaused ? '#f97316' : '#333333',
             letterSpacing: '0.06em',
-            lineHeight: 1,
           }}
         >
           {formatTime(elapsed)}
         </span>
 
-        {/* Status badge */}
+        {/* Status badge — hidden on mobile */}
         <span
+          className="hidden sm:inline"
           style={{
             ...statusStyle,
             fontSize: '10px',
@@ -247,12 +247,12 @@ export function Header({
       </div>
 
       {/* Right: Nav + WS Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {/* Knowledge Link */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        {/* Knowledge Link — hidden on mobile */}
         <a
           href="/knowledge"
+          className="hidden sm:flex"
           style={{
-            display: 'flex',
             alignItems: 'center',
             gap: '4px',
             padding: '6px 12px',
@@ -267,14 +267,14 @@ export function Header({
         >
           📚 AI 問答
         </a>
-        
-        {/* WS Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+        {/* WS Status dot — always visible */}
         <div
           style={{
             width: '7px',
             height: '7px',
             borderRadius: '50%',
+            flexShrink: 0,
             background:
               wsStatus === 'connected' ? '#22c55e'
               : wsStatus === 'connecting' ? '#f59e0b'
@@ -282,7 +282,8 @@ export function Header({
           }}
           className={wsStatus === 'connecting' ? 'animate-pulse' : ''}
         />
-        <span style={{ color: '#888', fontSize: '12px' }}>
+        {/* WS Status text + reconnect — hidden on mobile */}
+        <span className="hidden sm:inline" style={{ color: '#888', fontSize: '12px' }}>
           {wsStatus === 'connected' ? '已連線' : wsStatus === 'connecting' ? '連線中...' : '未連線'}
         </span>
         {(wsStatus === 'disconnected' || wsStatus === 'error') && onReconnect && (
@@ -301,7 +302,6 @@ export function Header({
             重連
           </button>
         )}
-        </div>
       </div>
     </header>
   );

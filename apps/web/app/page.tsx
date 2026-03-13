@@ -10,6 +10,14 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useMeetings } from '@/hooks/useMeetings';
 
+type MobileTab = 'context' | 'transcript' | 'coach';
+
+const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
+  { id: 'context', icon: '🗂', label: '會議' },
+  { id: 'transcript', icon: '📝', label: '逐字稿' },
+  { id: 'coach', icon: '🤖', label: 'Coach' },
+];
+
 export default function Home() {
   const { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson } = useWebSocket();
   const {
@@ -22,6 +30,8 @@ export default function Home() {
     removeMeeting,
     loading: meetingsLoading,
   } = useMeetings();
+
+  const [mobileTab, setMobileTab] = useState<MobileTab>('transcript');
 
   // Recording timer
   const [elapsed, setElapsed] = useState(0);
@@ -67,7 +77,6 @@ export default function Home() {
   const handleStop = useCallback(() => {
     recorder.stop();
     sendJson({ type: 'stop' });
-    // Auto-save to active meeting
     if (activeMeetingId && transcripts.length > 0) {
       saveMeeting(activeMeetingId, {
         transcript: transcripts,
@@ -82,15 +91,7 @@ export default function Home() {
   const isRecording = recorder.recordingState === 'recording';
 
   return (
-    <div
-      style={{
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: '#1a1a1a',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#1a1a1a' }}>
       {/* Top header bar */}
       <Header
         elapsed={elapsed}
@@ -104,10 +105,16 @@ export default function Home() {
         onReconnect={connect}
       />
 
-      {/* Three-column main area */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      {/* Main content: 3-col on desktop, single-panel on mobile */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left: Context / Playbook */}
-        <div style={{ width: '240px', flexShrink: 0, overflow: 'hidden' }}>
+        <div
+          className={`overflow-hidden flex-shrink-0 ${
+            mobileTab === 'context'
+              ? 'flex flex-col flex-1 md:flex-none md:w-60'
+              : 'hidden md:flex md:flex-col md:w-60'
+          }`}
+        >
           <ContextPanel
             meetings={meetings}
             activeMeeting={activeMeeting}
@@ -119,14 +126,54 @@ export default function Home() {
         </div>
 
         {/* Middle: Transcript */}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
+        <div
+          className={`overflow-hidden flex-1 ${
+            mobileTab === 'transcript' ? 'flex flex-col' : 'hidden md:flex md:flex-col'
+          }`}
+        >
           <Transcript lines={transcripts} cleanedText={cleanedTranscript} isRecording={isRecording} />
         </div>
 
         {/* Right: Coach Panel */}
-        <div style={{ width: '280px', flexShrink: 0, overflow: 'hidden' }}>
+        <div
+          className={`overflow-hidden flex-shrink-0 ${
+            mobileTab === 'coach'
+              ? 'flex flex-col flex-1 md:flex-none md:w-72'
+              : 'hidden md:flex md:flex-col md:w-72'
+          }`}
+        >
           <CoachPanel coaching={coaching} />
         </div>
+      </div>
+
+      {/* Mobile tab bar — hidden on md+ */}
+      <div className="md:hidden flex border-t border-gray-200 bg-white flex-shrink-0">
+        {MOBILE_TABS.map(({ id, icon, label }) => (
+          <button
+            key={id}
+            onClick={() => setMobileTab(id)}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '8px 0 6px',
+              gap: '2px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 600,
+              transition: 'background 0.15s',
+              background: mobileTab === id ? '#eff6ff' : '#ffffff',
+              color: mobileTab === id ? '#2563eb' : '#6b7280',
+              borderTop: mobileTab === id ? '2px solid #2563eb' : '2px solid transparent',
+            }}
+          >
+            <span style={{ fontSize: '18px', lineHeight: 1 }}>{icon}</span>
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
 
       {/* Bottom control bar (secondary actions) */}

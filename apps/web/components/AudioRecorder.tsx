@@ -20,7 +20,7 @@ function CtrlBtn({ label, onClick, color, bg, border }: CtrlBtnProps) {
     <button
       onClick={onClick}
       style={{
-        padding: '5px 13px',
+        padding: '7px 13px',
         borderRadius: '5px',
         border: `1px solid ${border}`,
         background: bg,
@@ -29,6 +29,7 @@ function CtrlBtn({ label, onClick, color, bg, border }: CtrlBtnProps) {
         fontWeight: 600,
         cursor: 'pointer',
         whiteSpace: 'nowrap',
+        minHeight: '36px',
       }}
     >
       {label}
@@ -42,15 +43,16 @@ export function AudioRecorder({ error }: AudioRecorderProps) {
       style={{
         background: '#ffffff',
         borderTop: '1px solid #d8d8d0',
-        padding: '9px 16px',
+        padding: '7px 12px',
         display: 'flex',
         alignItems: 'center',
-        gap: '7px',
+        gap: '6px',
         flexShrink: 0,
         flexWrap: 'wrap',
+        overflowX: 'auto',
       }}
     >
-      <CtrlBtn label="📎 Files ▼" onClick={() => {}} color="#555" bg="#f5f5f5" border="#d0d0d0" />
+      <CtrlBtn label="📎 Files" onClick={() => {}} color="#555" bg="#f5f5f5" border="#d0d0d0" />
       <CtrlBtn label="Deep Coach" onClick={() => {}} color="#fff" bg="#f59e0b" border="#d97706" />
       <CtrlBtn label="Clone"      onClick={() => {}} color="#fff" bg="#8b5cf6" border="#7c3aed" />
       <CtrlBtn label="Summarize"  onClick={() => {}} color="#444" bg="#f5f5f5" border="#d0d0d0" />
