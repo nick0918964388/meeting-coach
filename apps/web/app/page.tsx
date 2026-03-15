@@ -19,7 +19,7 @@ const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
 ];
 
 export default function Home() {
-  const { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson } = useWebSocket();
+  const { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson, clearTranscripts } = useWebSocket();
   const {
     meetings,
     activeMeeting,
@@ -87,19 +87,24 @@ export default function Home() {
   }, [connect, disconnect]);
 
   const handleStart = useCallback(async () => {
+    if (!activeMeetingId) {
+      alert('請先建立或選擇一個會議再開始錄音');
+      return;
+    }
     try {
       const detectedMime = await recorder.start();
       sendJson({
         type: 'start',
         config: {
           language: 'zh',
+          meetingId: activeMeetingId,
           mimeType: detectedMime || 'audio/webm',
         },
       });
     } catch (err) {
       console.error('[Start]', err);
     }
-  }, [recorder, sendJson]);
+  }, [recorder, sendJson, activeMeetingId]);
 
   const handleStop = useCallback(() => {
     // Flush any remaining audio in VAD buffer before stopping
@@ -119,6 +124,22 @@ export default function Home() {
 
   const handlePause = useCallback(() => recorder.pause(), [recorder]);
   const handleResume = useCallback(() => recorder.resume(), [recorder]);
+
+  const handleSaveTranscript = useCallback(() => {
+    if (activeMeetingId && transcripts.length > 0) {
+      saveMeeting(activeMeetingId, {
+        transcript: transcripts.filter((t) => !t.startsWith('⏳')),
+        coaching: coaching ?? undefined,
+      });
+      alert('逐字稿已儲存');
+    }
+  }, [activeMeetingId, transcripts, coaching, saveMeeting]);
+
+  const handleClearTranscript = useCallback(() => {
+    if (confirm('確定要清除目前的逐字稿嗎？')) {
+      clearTranscripts();
+    }
+  }, [clearTranscripts]);
 
   const isRecording = recorder.recordingState === 'recording';
 
@@ -207,7 +228,13 @@ export default function Home() {
             mobileTab === 'transcript' ? 'flex flex-col' : 'hidden md:flex md:flex-col'
           }`}
         >
-          <Transcript lines={transcripts} cleanedText={cleanedTranscript} isRecording={isRecording} />
+          <Transcript
+            lines={transcripts}
+            cleanedText={cleanedTranscript}
+            isRecording={isRecording}
+            onSave={activeMeetingId ? handleSaveTranscript : undefined}
+            onClear={handleClearTranscript}
+          />
         </div>
 
         {/* Right: Coach Panel */}

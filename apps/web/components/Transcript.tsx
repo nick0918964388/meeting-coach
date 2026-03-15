@@ -6,9 +6,11 @@ interface TranscriptProps {
   lines: string[];
   cleanedText: string;
   isRecording: boolean;
+  onSave?: () => void;
+  onClear?: () => void;
 }
 
-export function Transcript({ lines, cleanedText, isRecording }: TranscriptProps) {
+export function Transcript({ lines, cleanedText, isRecording, onSave, onClear }: TranscriptProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<'raw' | 'cleaned'>('raw');
 
@@ -51,7 +53,50 @@ export function Transcript({ lines, cleanedText, isRecording }: TranscriptProps)
         >
           Transcript
         </span>
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {/* Save / Clear buttons */}
+          {lines.length > 0 && !isRecording && (
+            <>
+              {onSave && (
+                <button
+                  onClick={onSave}
+                  title="儲存逐字稿"
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '3px',
+                    border: '1px solid #22c55e',
+                    cursor: 'pointer',
+                    background: '#f0fdf4',
+                    color: '#16a34a',
+                    marginRight: '2px',
+                  }}
+                >
+                  儲存
+                </button>
+              )}
+              {onClear && (
+                <button
+                  onClick={onClear}
+                  title="清除逐字稿"
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '3px',
+                    border: '1px solid #ef4444',
+                    cursor: 'pointer',
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    marginRight: '6px',
+                  }}
+                >
+                  清除
+                </button>
+              )}
+            </>
+          )}
           {(['raw', 'cleaned'] as const).map((t) => (
             <button
               key={t}

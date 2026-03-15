@@ -17,6 +17,7 @@ export interface UseWebSocketReturn {
   disconnect: () => void;
   send: (data: string | ArrayBuffer | Blob) => void;
   sendJson: (msg: object) => void;
+  clearTranscripts: () => void;
 }
 
 const MAX_RECONNECT = 5;
@@ -149,5 +150,11 @@ export function useWebSocket(): UseWebSocketReturn {
     };
   }, [clearPingInterval]);
 
-  return { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson };
+  const clearTranscripts = useCallback(() => {
+    setTranscripts([]);
+    setCleanedTranscript('');
+    setCoaching(null);
+  }, []);
+
+  return { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson, clearTranscripts };
 }
