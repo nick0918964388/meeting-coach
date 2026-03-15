@@ -13,7 +13,7 @@ import type {
 
 const ANALYSIS_INTERVAL_MS = 30 * 1000; // 30 seconds
 const ANALYSIS_WORD_THRESHOLD = 200;
-const AUDIO_CHUNK_DURATION_MS = 3000; // 3 seconds
+const AUDIO_CHUNK_DURATION_MS = 10000; // 10 seconds — short chunks hurt Whisper accuracy for Chinese
 const CLEAN_CHUNK_INTERVAL = 3; // 每 3 個 chunk 觸發一次修正
 
 function send(ws: WebSocket, msg: ServerMessage) {
@@ -57,12 +57,13 @@ async function processAudioChunk(
   try {
     sendStatus(ws, 'processing');
     console.log(`[WS] transcribeAudio start: ${chunk.length} bytes, mimeType: ${session.mimeType}, lang: ${session.language}`);
-    const text = await transcribeAudio(chunk, session.language, session.mimeType);
+    const text = await transcribeAudio(chunk, session.language, session.mimeType, session.lastTranscript);
     console.log(`[WS] transcribeAudio result: "${text}"`);
 
     if (text && text.trim()) {
       session.transcriptBuffer += ' ' + text.trim();
       session.fullTranscript += ' ' + text.trim();
+      session.lastTranscript = text.trim();
       session.chunkCount = (session.chunkCount || 0) + 1;
 
       const transcriptMsg: TranscriptMessage = {
@@ -140,6 +141,7 @@ export function handleWebSocket(ws: WebSocket): void {
     wordCount: 0,
     audioBuffer: [],
     chunkCount: 0,
+    lastTranscript: '',
   };
 
   let audioAccumulator: Buffer[] = [];
@@ -201,6 +203,7 @@ export function handleWebSocket(ws: WebSocket): void {
             session.lastAnalysisTime = Date.now();
             audioAccumulator = [];
             mp4InitSegment = null;
+            session.lastTranscript = '';
             sendStatus(ws, 'recording');
             console.log(`[WS] ${session.id}: Recording started (lang: ${session.language})`);
             break;

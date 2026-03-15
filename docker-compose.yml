@@ -19,7 +19,7 @@ services:
       OLLAMA_HOST: "http://192.168.1.161:11434"
       OLLAMA_MODEL: "gpt-oss:120b-cloud"
       # Whisper STT configuration
-      WHISPER_PROVIDER: "${WHISPER_PROVIDER:-openai}"
+      WHISPER_PROVIDER: "${WHISPER_PROVIDER:-groq}"
       OPENAI_API_KEY: "${OPENAI_API_KEY}"
       GROQ_API_KEY: "${GROQ_API_KEY:-}"
     volumes:

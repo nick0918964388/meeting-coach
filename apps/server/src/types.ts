@@ -10,4 +10,5 @@ export interface SessionState {
   wordCount: number;
   audioBuffer: Buffer[];
   chunkCount: number;
+  lastTranscript: string; // previous transcript for Whisper prompt hint
 }

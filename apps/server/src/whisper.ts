@@ -35,7 +35,8 @@ function mimeTypeToExtension(mimeType: string): string {
 export async function transcribeAudio(
   audioData: Buffer,
   language: string = 'zh',
-  mimeType: string = 'audio/webm'
+  mimeType: string = 'audio/webm',
+  promptHint: string = ''
 ): Promise<string> {
   const provider = PROVIDERS[WHISPER_PROVIDER as keyof typeof PROVIDERS] || PROVIDERS.groq;
   
@@ -48,6 +49,10 @@ export async function transcribeAudio(
   form.append('file', new Blob([audioData], { type: mimeType }), `audio.${ext}`);
   form.append('model', provider.model);
   form.append('language', language);
+  // Prompt hint: pass previous transcript to improve continuity and accuracy
+  if (promptHint) {
+    form.append('prompt', promptHint.slice(-200));
+  }
 
   console.log(`[Whisper] Using ${WHISPER_PROVIDER} provider, model: ${provider.model}`);
 
