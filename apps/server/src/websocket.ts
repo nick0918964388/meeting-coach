@@ -43,11 +43,17 @@ function shouldAnalyze(session: SessionState): boolean {
   );
 }
 
+const MIN_AUDIO_BYTES = 1000; // skip tiny/empty chunks
+
 async function processAudioChunk(
   ws: WebSocket,
   session: SessionState,
   chunk: Buffer
 ): Promise<void> {
+  if (chunk.length < MIN_AUDIO_BYTES) {
+    console.log(`[WS] Skipping tiny audio chunk: ${chunk.length} bytes`);
+    return;
+  }
   try {
     sendStatus(ws, 'processing');
     console.log(`[WS] transcribeAudio start: ${chunk.length} bytes, mimeType: ${session.mimeType}, lang: ${session.language}`);
@@ -139,15 +145,30 @@ export function handleWebSocket(ws: WebSocket): void {
   let audioAccumulator: Buffer[] = [];
   let audioAccumulatorDuration = 0;
   let flushTimer: NodeJS.Timeout | null = null;
+  // For fragmented MP4 (iOS Safari): first chunk contains the init segment (moov box).
+  // Subsequent chunks are fragments and cannot be decoded without it.
+  let mp4InitSegment: Buffer | null = null;
 
   console.log(`[WS] Client connected: ${session.id}`);
   sendStatus(ws, 'idle');
 
   async function flushAudio() {
     if (audioAccumulator.length === 0 || !session.isRecording) return;
-    const combined = Buffer.concat(audioAccumulator);
+    let combined = Buffer.concat(audioAccumulator);
     audioAccumulator = [];
     audioAccumulatorDuration = 0;
+
+    // Fragmented MP4 fix: prepend init segment to every batch after the first
+    if (session.mimeType.startsWith('audio/mp4')) {
+      if (!mp4InitSegment) {
+        // First flush — this IS the init segment (+ first audio data)
+        mp4InitSegment = combined;
+      } else {
+        // Subsequent flushes — prepend init segment so Whisper can decode
+        combined = Buffer.concat([mp4InitSegment, combined]);
+      }
+    }
+
     await processAudioChunk(ws, session, combined);
   }
 
@@ -179,6 +200,7 @@ export function handleWebSocket(ws: WebSocket): void {
             session.fullTranscript = '';
             session.lastAnalysisTime = Date.now();
             audioAccumulator = [];
+            mp4InitSegment = null;
             sendStatus(ws, 'recording');
             console.log(`[WS] ${session.id}: Recording started (lang: ${session.language})`);
             break;
@@ -207,6 +229,32 @@ export function handleWebSocket(ws: WebSocket): void {
             }
             sendStatus(ws, 'idle');
             console.log(`[WS] ${session.id}: Recording stopped`);
+            break;
+
+          case 'transcript_text':
+            if (session.isRecording && (msg as { type: 'transcript_text'; text: string }).text) {
+              const text = (msg as { type: 'transcript_text'; text: string }).text.trim();
+              if (text) {
+                session.transcriptBuffer += ' ' + text;
+                session.fullTranscript += ' ' + text;
+                session.chunkCount = (session.chunkCount || 0) + 1;
+
+                const transcriptMsg: TranscriptMessage = {
+                  type: 'transcript',
+                  text,
+                  isFinal: true,
+                };
+                send(ws, transcriptMsg);
+
+                if (session.chunkCount % CLEAN_CHUNK_INTERVAL === 0) {
+                  triggerCleanTranscript(ws, session);
+                }
+
+                if (shouldAnalyze(session)) {
+                  await triggerAnalysis(ws, session);
+                }
+              }
+            }
             break;
 
           case 'ping':

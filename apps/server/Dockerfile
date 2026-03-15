@@ -20,19 +20,14 @@ RUN cd apps/server && npx tsc
 # ── Stage 2: Runtime image ─────────────────────────────────────────────────
 FROM node:22-slim
 
-# System deps: ffmpeg (audio conversion) + python3 + pip (faster-whisper) + expect (trust dialog)
+# System deps: ffmpeg (audio conversion) + tmux + expect (trust dialog)
+# Note: faster-whisper removed - now using sherpa-onnx WASM in browser
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
-      python3 \
-      python3-pip \
       tmux \
       expect \
-    && pip3 install faster-whisper --break-system-packages \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /root/.cache/pip
-
-# Install Claude CLI globally
-RUN npm install -g @anthropic-ai/claude-code
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user (UID 1000 for compatibility)
 ARG UID=1000
@@ -55,13 +50,6 @@ COPY --from=builder /app/packages ./packages
 # Persistent data directories
 RUN mkdir -p .knowledge .meetings && \
     chown -R 1000:1000 /app
-
-# Claude config directory (will be mounted as volume)
-# Pre-create Claude config directory  
-RUN mkdir -p /home/appuser/.claude/projects/-app && \
-    echo '{}' > /home/appuser/.claude/projects/-app/sessions-index.json && \
-    echo '{}' > /home/appuser/.claude/settings.json && \
-    chown -R 1000:1000 /home/appuser 2>/dev/null || true
 
 ENV NODE_ENV=production
 ENV PORT=3001

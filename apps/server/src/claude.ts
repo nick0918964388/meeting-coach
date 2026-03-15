@@ -1,7 +1,7 @@
-import { spawn } from 'child_process';
 import type { CoachMessage } from '@meeting-coach/shared';
 import { searchKnowledge } from './knowledge.js';
 import { sendMessage, sendMessageStream } from './session-manager.js';
+import { ollamaChat } from './ollama.js';
 
 // 文字修正 prompt
 const CLEAN_TRANSCRIPT_PROMPT = (rawText: string) => `你是專業的語音轉文字後處理專家。
@@ -20,61 +20,22 @@ ${rawText}
 
 只輸出修正後的文字，不要任何說明或格式標記。`;
 
-// 通用 Claude CLI 調用函數
-async function callClaude(prompt: string, timeoutMs = 30000): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const env = { ...process.env };
-    delete env.CLAUDECODE;
-    delete env.CLAUDE_CODE_SESSION_ID;
-    delete env.CLAUDE_CODE_ENTRYPOINT;
-
-    // 非 root 用戶可以使用 --dangerously-skip-permissions
-    const proc = spawn('claude', ['-p', '--dangerously-skip-permissions'], { env });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdin.write(prompt);
-    proc.stdin.end();
-
-    proc.stdout.on('data', (d) => (stdout += d.toString()));
-    proc.stderr.on('data', (d) => (stderr += d.toString()));
-
-    proc.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`Claude CLI failed (code ${code}): ${stderr}`));
-        return;
-      }
-      resolve(stdout.trim());
-    });
-
-    proc.on('error', (err) => {
-      reject(new Error(`Failed to spawn Claude CLI: ${err.message}`));
-    });
-
-    setTimeout(() => {
-      proc.kill();
-      reject(new Error('Claude CLI timed out'));
-    }, timeoutMs);
-  });
-}
-
 // 修正文字語意
 export async function cleanTranscript(rawText: string): Promise<string> {
   if (!rawText || rawText.trim().length < 10) {
     return rawText;
   }
-  
+
   try {
-    const cleaned = await callClaude(CLEAN_TRANSCRIPT_PROMPT(rawText), 20000);
+    const cleaned = await ollamaChat(CLEAN_TRANSCRIPT_PROMPT(rawText), 20000);
     return cleaned || rawText;
   } catch (err) {
-    console.error('[Claude] Clean transcript error:', err);
+    console.error('[Ollama] Clean transcript error:', err);
     return rawText; // 失敗時返回原文
   }
 }
 
-const CLAUDE_PROMPT_TEMPLATE = (transcript: string, context?: string) => `你是一個專業會議教練。${
+const COACH_PROMPT_TEMPLATE = (transcript: string, context?: string) => `你是一個專業會議教練。${
   context
     ? `\n\n以下是相關背景知識供你參考：\n\n---\n${context}\n---\n`
     : ''
@@ -98,90 +59,31 @@ ${transcript}
 只輸出 JSON，不要其他說明。`;
 
 export async function analyzeWithClaude(transcript: string, meetingId = 'global'): Promise<CoachMessage> {
-  // Search knowledge base for relevant context (async with Ollama embedding)
+  // Search knowledge base for relevant context
   const relevantChunks = await searchKnowledge(transcript, 4, meetingId);
   const context = relevantChunks.length > 0 ? relevantChunks.join('\n\n') : undefined;
-  const prompt = CLAUDE_PROMPT_TEMPLATE(transcript, context);
+  const prompt = COACH_PROMPT_TEMPLATE(transcript, context);
 
-  return new Promise((resolve, reject) => {
-    // Remove CLAUDECODE env vars to allow nested Claude CLI calls
-    const env = { ...process.env };
-    delete env.CLAUDECODE;
-    delete env.CLAUDE_CODE_SESSION_ID;
-    delete env.CLAUDE_CODE_ENTRYPOINT;
+  try {
+    const text = await ollamaChat(prompt, 30000);
 
-    // 非 root 用戶可以直接使用 claude CLI
-    const proc = spawn('claude', [
-      '-p',
-      '--dangerously-skip-permissions',
-      '--output-format', 'json'
-    ], { env });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in Ollama response');
+    }
 
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdin.write(prompt);
-    proc.stdin.end();
-
-    proc.stdout.on('data', (d) => (stdout += d.toString()));
-    proc.stderr.on('data', (d) => (stderr += d.toString()));
-
-    proc.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`Claude CLI failed (code ${code}): ${stderr}`));
-        return;
-      }
-
-      try {
-        // Parse the Claude JSON output format
-        const output = JSON.parse(stdout.trim());
-        // Claude --output-format json wraps in a result field
-        const text = output.result || output.content || stdout;
-
-        // Extract JSON from the text response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          throw new Error('No JSON found in Claude response');
-        }
-
-        const coaching = JSON.parse(jsonMatch[0]);
-        resolve({
-          type: 'coach',
-          keyPoints: coaching.keyPoints || [],
-          suggestions: coaching.suggestions || [],
-          warnings: coaching.warnings || [],
-          nextSteps: coaching.nextSteps || [],
-        });
-      } catch (err) {
-        // Try parsing stdout directly as JSON
-        try {
-          const jsonMatch = stdout.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const coaching = JSON.parse(jsonMatch[0]);
-            resolve({
-              type: 'coach',
-              keyPoints: coaching.keyPoints || [],
-              suggestions: coaching.suggestions || [],
-              warnings: coaching.warnings || [],
-              nextSteps: coaching.nextSteps || [],
-            });
-            return;
-          }
-        } catch {}
-        reject(new Error(`Failed to parse Claude output: ${err}`));
-      }
-    });
-
-    proc.on('error', (err) => {
-      reject(new Error(`Failed to spawn Claude CLI: ${err.message}`));
-    });
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      proc.kill();
-      reject(new Error('Claude CLI timed out'));
-    }, 30000);
-  });
+    const coaching = JSON.parse(jsonMatch[0]);
+    return {
+      type: 'coach',
+      keyPoints: coaching.keyPoints || [],
+      suggestions: coaching.suggestions || [],
+      warnings: coaching.warnings || [],
+      nextSteps: coaching.nextSteps || [],
+    };
+  } catch (err) {
+    console.error('[Ollama] Analyze error:', err);
+    throw err;
+  }
 }
 
 // ===== 對話歷史管理 =====
@@ -265,7 +167,7 @@ export async function askQuestion(question: string, topK = 5, meetingId = 'globa
     addToHistory(meetingId, question, answer);
     return { answer, sources: relevantChunks };
   } catch (err) {
-    console.error('[Claude] Ask question error:', err);
+    console.error('[Ollama] Ask question error:', err);
     throw err;
   }
 }
@@ -277,7 +179,7 @@ type SseEmitter = (event: string, data: unknown) => void;
 export async function askQuestionStream(
   question: string,
   topK: number,
-  _sessionId: string | undefined, // kept for API compatibility; sessions now managed via tmux
+  _sessionId: string | undefined,
   onEvent: SseEmitter,
   meetingId = 'global',
 ): Promise<void> {
@@ -305,7 +207,7 @@ export async function askQuestionStream(
     addToHistory(meetingId, question, fullAnswer);
     onEvent('done', { sessionId: null, sources: relevantChunks });
   } catch (err) {
-    console.error('[Claude] Stream error:', err);
+    console.error('[Ollama] Stream error:', err);
     onEvent('fail', { message: String(err) });
   }
 }

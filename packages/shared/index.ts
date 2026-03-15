@@ -23,7 +23,13 @@ export interface PingMessage {
   type: 'ping';
 }
 
-export type ClientMessage = StartMessage | AudioMessage | StopMessage | PingMessage;
+// Client sends transcript text directly (sherpa-onnx WASM mode)
+export interface TranscriptFromClientMessage {
+  type: 'transcript_text';
+  text: string;
+}
+
+export type ClientMessage = StartMessage | AudioMessage | StopMessage | PingMessage | TranscriptFromClientMessage;
 
 // Server → Client messages
 export interface TranscriptMessage {
