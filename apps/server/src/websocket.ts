@@ -317,6 +317,7 @@ export function handleWebSocket(ws: WebSocket): void {
       const buf = raw instanceof Buffer ? raw : Buffer.from(raw as ArrayBuffer);
       if (session.isRecording) {
         if (USE_DEEPGRAM && dgStream) {
+          console.log(`[WS] Sending ${buf.length} bytes to Deepgram`);
           dgStream.send(buf);
         } else {
           audioAccumulator.push(buf);
