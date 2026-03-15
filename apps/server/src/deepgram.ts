@@ -1,5 +1,4 @@
-import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
-import type { LiveSchema } from '@deepgram/sdk';
+import WebSocket from 'ws';
 
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || '';
 
@@ -14,53 +13,65 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
     throw new Error('Missing DEEPGRAM_API_KEY environment variable');
   }
 
-  const deepgram = createClient(DEEPGRAM_API_KEY);
-
-  const options: LiveSchema = {
+  const params = new URLSearchParams({
     model: 'nova-2',
     language: 'zh',
-    smart_format: true,
-    interim_results: true,
-    utterance_end_ms: 1500,
-    vad_events: true,
-    endpointing: 500,
+    smart_format: 'true',
+    interim_results: 'true',
+    utterance_end_ms: '1500',
+    vad_events: 'true',
+    endpointing: '500',
     encoding: 'opus',
-    sample_rate: 48000,
-  };
+    sample_rate: '48000',
+  });
 
-  console.log('[Deepgram] Creating live connection with options:', JSON.stringify(options));
-  const connection = deepgram.listen.live(options);
+  const url = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+  console.log('[Deepgram] Connecting...');
+
+  const ws = new WebSocket(url, {
+    headers: {
+      Authorization: `Token ${DEEPGRAM_API_KEY}`,
+    },
+  });
 
   let isOpen = false;
   let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 
-  connection.on(LiveTranscriptionEvents.Open, () => {
-    console.log('[Deepgram] Connection opened');
+  ws.on('open', () => {
+    console.log('[Deepgram] Connected');
     isOpen = true;
     // Keep alive every 8 seconds
     keepAliveTimer = setInterval(() => {
-      if (isOpen) connection.keepAlive();
+      if (isOpen && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'KeepAlive' }));
+      }
     }, 8000);
   });
 
-  connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
-    const alt = data.channel?.alternatives?.[0];
-    if (!alt) return;
-    const transcript = alt.transcript;
-    if (!transcript) return;
+  ws.on('message', (data) => {
+    try {
+      const msg = JSON.parse(data.toString());
 
-    const isFinal = data.is_final === true;
-    console.log(`[Deepgram] ${isFinal ? 'Final' : 'Interim'}: "${transcript}"`);
-    callbacks.onTranscript(transcript, isFinal);
+      if (msg.type === 'Results') {
+        const alt = msg.channel?.alternatives?.[0];
+        if (!alt || !alt.transcript) return;
+
+        const isFinal = msg.is_final === true;
+        console.log(`[Deepgram] ${isFinal ? 'Final' : 'Interim'}: "${alt.transcript}"`);
+        callbacks.onTranscript(alt.transcript, isFinal);
+      }
+    } catch (err) {
+      // ignore parse errors
+    }
   });
 
-  connection.on(LiveTranscriptionEvents.Error, (error: any) => {
-    console.error('[Deepgram] Error:', error);
-    callbacks.onError(new Error(String(error)));
+  ws.on('error', (error) => {
+    console.error('[Deepgram] WebSocket error:', error.message);
+    callbacks.onError(error);
   });
 
-  connection.on(LiveTranscriptionEvents.Close, () => {
-    console.log('[Deepgram] Connection closed');
+  ws.on('close', (code, reason) => {
+    console.log(`[Deepgram] Disconnected: ${code} ${reason.toString()}`);
     isOpen = false;
     if (keepAliveTimer) {
       clearInterval(keepAliveTimer);
@@ -71,8 +82,8 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
 
   return {
     send(audioChunk: Buffer) {
-      if (isOpen) {
-        connection.send(audioChunk);
+      if (isOpen && ws.readyState === WebSocket.OPEN) {
+        ws.send(audioChunk);
       }
     },
     close() {
@@ -82,7 +93,11 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
         keepAliveTimer = null;
       }
       try {
-        connection.requestClose();
+        // Send CloseStream message for graceful shutdown
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'CloseStream' }));
+        }
+        ws.close();
       } catch {
         // ignore close errors
       }
