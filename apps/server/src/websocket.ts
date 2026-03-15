@@ -45,6 +45,42 @@ function shouldAnalyze(session: SessionState): boolean {
 
 const MIN_AUDIO_BYTES = 1000; // skip tiny/empty chunks
 
+/**
+ * Extract only the initialization boxes (ftyp, moov) from a fragmented MP4 buffer.
+ * These boxes contain codec/track info but NO audio data.
+ * The first MediaRecorder chunk on iOS contains: ftyp + moov + moof + mdat
+ * We strip out the moof+mdat so we can cleanly prepend the init to later fragments.
+ */
+function extractMp4InitSegment(buf: Buffer): Buffer {
+  const INIT_BOX_TYPES = new Set(['ftyp', 'moov', 'styp']);
+  const parts: Buffer[] = [];
+  let offset = 0;
+
+  while (offset + 8 <= buf.length) {
+    const size = buf.readUInt32BE(offset);
+    if (size < 8 || offset + size > buf.length) break;
+
+    const type = buf.toString('ascii', offset + 4, offset + 8);
+
+    if (INIT_BOX_TYPES.has(type)) {
+      parts.push(buf.subarray(offset, offset + size));
+    } else {
+      // Stop at first non-init box (moof = start of audio fragments)
+      break;
+    }
+
+    offset += size;
+  }
+
+  // Fallback: if parsing failed, return the full buffer (original behavior)
+  if (parts.length === 0) {
+    console.warn('[WS] Could not parse fMP4 boxes, using full chunk as init segment');
+    return buf;
+  }
+
+  return Buffer.concat(parts);
+}
+
 async function processAudioChunk(
   ws: WebSocket,
   session: SessionState,
@@ -85,8 +121,8 @@ async function processAudioChunk(
 
     sendStatus(ws, 'recording');
   } catch (err) {
-    console.error('Audio processing error:', err);
-    sendStatus(ws, 'error', String(err));
+    console.error(`Audio processing error (mime: ${session.mimeType}, ${chunk.length} bytes):`, err);
+    sendStatus(ws, 'error', `STT failed: ${String(err)}`);
     sendStatus(ws, 'recording');
   }
 }
@@ -145,8 +181,9 @@ export function handleWebSocket(ws: WebSocket): void {
   let audioAccumulator: Buffer[] = [];
   let audioAccumulatorDuration = 0;
   let flushTimer: NodeJS.Timeout | null = null;
-  // For fragmented MP4 (iOS Safari): first chunk contains the init segment (moov box).
-  // Subsequent chunks are fragments and cannot be decoded without it.
+  // For fragmented MP4 (iOS Safari/Chrome): first chunk contains the init segment
+  // (ftyp + moov boxes). Subsequent chunks are moof+mdat fragments that cannot
+  // be decoded without the init segment prepended.
   let mp4InitSegment: Buffer | null = null;
 
   console.log(`[WS] Client connected: ${session.id}`);
@@ -158,13 +195,15 @@ export function handleWebSocket(ws: WebSocket): void {
     audioAccumulator = [];
     audioAccumulatorDuration = 0;
 
-    // Fragmented MP4 fix: prepend init segment to every batch after the first
+    // Fragmented MP4 fix: extract init-only boxes (ftyp+moov) from first chunk,
+    // then prepend just those to every subsequent fragment.
     if (session.mimeType.startsWith('audio/mp4')) {
       if (!mp4InitSegment) {
-        // First flush — this IS the init segment (+ first audio data)
-        mp4InitSegment = combined;
+        mp4InitSegment = extractMp4InitSegment(combined);
+        console.log(`[WS] Saved fMP4 init segment: ${mp4InitSegment.length} bytes (full chunk: ${combined.length} bytes)`);
+        // First flush — send full chunk as-is (init + first fragment)
       } else {
-        // Subsequent flushes — prepend init segment so Whisper can decode
+        // Subsequent flushes — prepend init-only segment so Whisper can decode
         combined = Buffer.concat([mp4InitSegment, combined]);
       }
     }

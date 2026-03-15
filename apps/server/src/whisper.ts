@@ -49,7 +49,7 @@ export async function transcribeAudio(
   form.append('model', provider.model);
   form.append('language', language);
 
-  console.log(`[Whisper] Using ${WHISPER_PROVIDER} provider, model: ${provider.model}`);
+  console.log(`[Whisper] Using ${WHISPER_PROVIDER} provider, model: ${provider.model}, size: ${audioData.length} bytes, mime: ${mimeType}`);
 
   const res = await fetch(provider.url, {
     method: 'POST',
@@ -61,6 +61,7 @@ export async function transcribeAudio(
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+    console.error(`[Whisper] API error ${res.status} (${mimeType}, ${audioData.length} bytes): ${body}`);
     throw new Error(`Whisper API error ${res.status}: ${body}`);
   }
 

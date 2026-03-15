@@ -132,16 +132,16 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     source.connect(analyser);
     analyserRef.current = analyser;
 
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const detectedMimeType = isIOS
-      ? 'audio/mp4'
-      : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-      ? 'audio/webm;codecs=opus'
-      : MediaRecorder.isTypeSupported('audio/webm')
-      ? 'audio/webm'
-      : MediaRecorder.isTypeSupported('audio/mp4')
-      ? 'audio/mp4'
-      : 'audio/ogg';
+    // On iOS all browsers use WebKit — prefer audio/mp4 if supported,
+    // but verify with isTypeSupported to avoid silent failures on some versions.
+    const candidates = [
+      'audio/mp4',
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg',
+    ];
+    const detectedMimeType =
+      candidates.find((m) => MediaRecorder.isTypeSupported(m)) || 'audio/mp4';
 
     setMimeType(detectedMimeType);
     const recorder = new MediaRecorder(stream, { mimeType: detectedMimeType });
