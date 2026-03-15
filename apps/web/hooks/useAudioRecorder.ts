@@ -135,11 +135,14 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     const recorder = new MediaRecorder(stream, { mimeType: mime });
     mediaRecorderRef.current = recorder;
 
+    // Capture maxRms at the moment stop() is called (before reset)
     recorder.ondataavailable = async (event) => {
-      console.log('[Recorder] ondataavailable size:', event.data.size, 'maxRms:', maxRmsRef.current.toFixed(4));
+      const chunkRms = maxRmsRef.current;
+      maxRmsRef.current = 0; // reset for next chunk AFTER capturing
+      console.log('[Recorder] ondataavailable size:', event.data.size, 'maxRms:', chunkRms.toFixed(4));
       if (event.data.size > 0) {
         // VAD: skip chunks that were mostly silence
-        if (maxRmsRef.current < SILENCE_RMS_THRESHOLD) {
+        if (chunkRms < SILENCE_RMS_THRESHOLD) {
           console.log('[Recorder] Skipping silent chunk (RMS below threshold)');
           return;
         }
@@ -149,7 +152,6 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
       }
     };
 
-    maxRmsRef.current = 0;
     console.log('[Recorder] Starting new MediaRecorder');
     recorder.start(); // No timeslice — we manually stop/restart for clean chunks
   }, [onChunk]);
@@ -196,7 +198,7 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
       const rec = mediaRecorderRef.current;
       console.log('[Recorder] Chunk timer fired, recorder state:', rec?.state);
       if (rec && rec.state === 'recording') {
-        rec.stop(); // triggers ondataavailable with a complete file
+        rec.stop(); // triggers ondataavailable (async), maxRmsRef captured there
         // Start a new recorder immediately on the same stream
         if (streamRef.current?.active) {
           startNewRecorder(stream, detectedMimeType);
