@@ -189,22 +189,37 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     setMimeType(detectedMimeType);
     detectedMimeRef.current = detectedMimeType;
 
-    // Start first recorder
-    startNewRecorder(stream, detectedMimeType);
+    // Streaming mode (short interval ≤1s): use timeslice for continuous streaming (Deepgram)
+    // Chunked mode (long interval >1s): use stop/restart for complete files (Whisper)
+    const isStreamingMode = chunkIntervalMs <= 1000;
 
-    // Periodically stop/restart to produce complete, self-contained audio files
-    chunkTimerRef.current = setInterval(() => {
-      if (isPausedRef.current || isStoppingRef.current) return;
-      const rec = mediaRecorderRef.current;
-      console.log('[Recorder] Chunk timer fired, recorder state:', rec?.state);
-      if (rec && rec.state === 'recording') {
-        rec.stop(); // triggers ondataavailable (async), maxRmsRef captured there
-        // Start a new recorder immediately on the same stream
-        if (streamRef.current?.active) {
-          startNewRecorder(stream, detectedMimeType);
+    if (isStreamingMode) {
+      // Streaming: use timeslice, each ondataavailable sends a small chunk
+      const recorder = new MediaRecorder(stream, { mimeType: detectedMimeType });
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = async (event) => {
+        if (event.data.size > 0) {
+          setChunkCount((c) => c + 1);
+          const buffer = await event.data.arrayBuffer();
+          onChunk?.(buffer);
         }
-      }
-    }, chunkIntervalMs);
+      };
+      console.log(`[Recorder] Starting streaming mode (${chunkIntervalMs}ms timeslice)`);
+      recorder.start(chunkIntervalMs);
+    } else {
+      // Chunked: stop/restart to produce complete, self-contained audio files
+      startNewRecorder(stream, detectedMimeType);
+      chunkTimerRef.current = setInterval(() => {
+        if (isPausedRef.current || isStoppingRef.current) return;
+        const rec = mediaRecorderRef.current;
+        if (rec && rec.state === 'recording') {
+          rec.stop();
+          if (streamRef.current?.active) {
+            startNewRecorder(stream, detectedMimeType);
+          }
+        }
+      }, chunkIntervalMs);
+    }
 
     setRecordingState('recording');
     updateAudioLevel();

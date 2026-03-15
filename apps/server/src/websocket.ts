@@ -2,6 +2,7 @@ import type { WebSocket } from 'ws';
 import type { SessionState } from './types.js';
 import { transcribeAudio } from './whisper.js';
 import { analyzeWithClaude, cleanTranscript } from './claude.js';
+import { createDeepgramStream, isDeepgramEnabled } from './deepgram.js';
 import type {
   ClientMessage,
   ServerMessage,
@@ -13,8 +14,11 @@ import type {
 
 const ANALYSIS_INTERVAL_MS = 30 * 1000; // 30 seconds
 const ANALYSIS_WORD_THRESHOLD = 200;
-const AUDIO_CHUNK_DURATION_MS = 5000; // 5 seconds — each chunk is now a complete file (stop/restart on client)
+const AUDIO_CHUNK_DURATION_MS = 5000; // 5 seconds — fallback Whisper mode
 const CLEAN_CHUNK_INTERVAL = 3; // 每 3 個 chunk 觸發一次修正
+
+const USE_DEEPGRAM = isDeepgramEnabled();
+console.log(`[STT] Provider: ${USE_DEEPGRAM ? 'Deepgram (streaming)' : 'Whisper (chunked)'}`);
 
 function send(ws: WebSocket, msg: ServerMessage) {
   if (ws.readyState === ws.OPEN) {
@@ -45,6 +49,8 @@ function shouldAnalyze(session: SessionState): boolean {
 
 const MIN_AUDIO_BYTES = 1000; // skip tiny/empty chunks
 
+// ── Whisper chunk-based processing (fallback) ──────────────────────────────
+
 async function processAudioChunk(
   ws: WebSocket,
   session: SessionState,
@@ -61,27 +67,7 @@ async function processAudioChunk(
     console.log(`[WS] transcribeAudio result: "${text}"`);
 
     if (text && text.trim()) {
-      session.transcriptBuffer += ' ' + text.trim();
-      session.fullTranscript += ' ' + text.trim();
-      session.lastTranscript = text.trim();
-      session.chunkCount = (session.chunkCount || 0) + 1;
-
-      const transcriptMsg: TranscriptMessage = {
-        type: 'transcript',
-        text: text.trim(),
-        isFinal: true,
-      };
-      send(ws, transcriptMsg);
-
-      // 每 N 個 chunk 觸發語意修正
-      if (session.chunkCount % CLEAN_CHUNK_INTERVAL === 0) {
-        triggerCleanTranscript(ws, session);
-      }
-
-      // Check if we should trigger Claude analysis
-      if (shouldAnalyze(session)) {
-        await triggerAnalysis(ws, session);
-      }
+      handleTranscriptText(ws, session, text.trim(), true);
     }
 
     sendStatus(ws, 'recording');
@@ -89,6 +75,41 @@ async function processAudioChunk(
     console.error('Audio processing error:', err);
     sendStatus(ws, 'error', String(err));
     sendStatus(ws, 'recording');
+  }
+}
+
+// ── Shared transcript handling ─────────────────────────────────────────────
+
+function handleTranscriptText(
+  ws: WebSocket,
+  session: SessionState,
+  text: string,
+  isFinal: boolean
+): void {
+  if (isFinal) {
+    session.transcriptBuffer += ' ' + text;
+    session.fullTranscript += ' ' + text;
+    session.lastTranscript = text;
+    session.chunkCount = (session.chunkCount || 0) + 1;
+  }
+
+  const transcriptMsg: TranscriptMessage = {
+    type: 'transcript',
+    text,
+    isFinal,
+  };
+  send(ws, transcriptMsg);
+
+  if (isFinal) {
+    // 每 N 個 final chunk 觸發語意修正
+    if (session.chunkCount % CLEAN_CHUNK_INTERVAL === 0) {
+      triggerCleanTranscript(ws, session);
+    }
+
+    // Check if we should trigger Claude analysis
+    if (shouldAnalyze(session)) {
+      triggerAnalysis(ws, session);
+    }
   }
 }
 
@@ -128,6 +149,8 @@ async function triggerAnalysis(ws: WebSocket, session: SessionState): Promise<vo
   }
 }
 
+// ── Main WebSocket handler ─────────────────────────────────────────────────
+
 export function handleWebSocket(ws: WebSocket): void {
   const session: SessionState = {
     id: Math.random().toString(36).slice(2),
@@ -144,14 +167,18 @@ export function handleWebSocket(ws: WebSocket): void {
     lastTranscript: '',
   };
 
+  // Whisper fallback state
   let audioAccumulator: Buffer[] = [];
   let audioAccumulatorDuration = 0;
   let flushTimer: NodeJS.Timeout | null = null;
-  // No longer needed: frontend now uses stop/restart MediaRecorder,
-  // producing complete self-contained audio files per chunk.
+
+  // Deepgram streaming state
+  let dgStream: ReturnType<typeof createDeepgramStream> | null = null;
 
   console.log(`[WS] Client connected: ${session.id}`);
   sendStatus(ws, 'idle');
+
+  // ── Whisper fallback functions ──
 
   async function flushAudio() {
     if (audioAccumulator.length === 0) return;
@@ -170,49 +197,94 @@ export function handleWebSocket(ws: WebSocket): void {
     }, AUDIO_CHUNK_DURATION_MS);
   }
 
-  ws.on('message', async (raw) => {
-    console.log('[WS] Received message type:', typeof raw, 'isBuffer:', raw instanceof Buffer, 'length:', (raw as any).length ?? (raw as any).byteLength ?? 0);
+  // ── Deepgram streaming functions ──
 
+  function startDeepgram() {
+    if (dgStream) {
+      dgStream.close();
+      dgStream = null;
+    }
+    try {
+      dgStream = createDeepgramStream({
+        onTranscript: (text, isFinal) => {
+          if (session.isRecording) {
+            handleTranscriptText(ws, session, text, isFinal);
+          }
+        },
+        onError: (error) => {
+          console.error(`[WS] ${session.id}: Deepgram error:`, error.message);
+          sendStatus(ws, 'error', error.message);
+        },
+        onClose: () => {
+          console.log(`[WS] ${session.id}: Deepgram stream closed`);
+        },
+      });
+    } catch (err) {
+      console.error(`[WS] ${session.id}: Failed to start Deepgram:`, err);
+    }
+  }
+
+  function stopDeepgram() {
+    if (dgStream) {
+      dgStream.close();
+      dgStream = null;
+    }
+  }
+
+  // ── Message handler ──
+
+  ws.on('message', async (raw) => {
     // Try to parse as JSON first (binaryType='arraybuffer' makes all messages arrive as Buffer)
     try {
       const text = raw.toString();
       const msg: ClientMessage = JSON.parse(text);
       if (msg && msg.type) {
-        console.log('[WS] JSON message:', JSON.stringify(msg));
         switch (msg.type) {
           case 'start':
             session.isRecording = true;
             session.language = msg.config?.language || 'zh';
             session.meetingId = msg.config?.meetingId || 'global';
             session.mimeType = msg.config?.mimeType || 'audio/webm';
-            console.log('[WS] Start recording, mimeType:', msg.config?.mimeType);
+            console.log(`[WS] ${session.id}: Start recording (${USE_DEEPGRAM ? 'Deepgram' : 'Whisper'}), mimeType: ${session.mimeType}`);
             session.transcriptBuffer = '';
             session.fullTranscript = '';
             session.lastAnalysisTime = Date.now();
-            audioAccumulator = [];
             session.lastTranscript = '';
+            session.chunkCount = 0;
+
+            if (USE_DEEPGRAM) {
+              startDeepgram();
+            } else {
+              audioAccumulator = [];
+            }
             sendStatus(ws, 'recording');
-            console.log(`[WS] ${session.id}: Recording started (lang: ${session.language})`);
             break;
 
           case 'audio':
             if (session.isRecording) {
-              // Handle base64 encoded audio
               const data = typeof msg.data === 'string'
                 ? Buffer.from(msg.data, 'base64')
                 : Buffer.from(msg.data as ArrayBuffer);
-              audioAccumulator.push(data);
-              scheduleFlush();
+              if (USE_DEEPGRAM && dgStream) {
+                dgStream.send(data);
+              } else {
+                audioAccumulator.push(data);
+                scheduleFlush();
+              }
             }
             break;
 
           case 'stop':
             session.isRecording = false;
-            if (flushTimer) {
-              clearTimeout(flushTimer);
-              flushTimer = null;
+            if (USE_DEEPGRAM) {
+              stopDeepgram();
+            } else {
+              if (flushTimer) {
+                clearTimeout(flushTimer);
+                flushTimer = null;
+              }
+              await flushAudio();
             }
-            await flushAudio();
             // Final analysis
             if (session.transcriptBuffer.trim()) {
               await triggerAnalysis(ws, session);
@@ -225,24 +297,7 @@ export function handleWebSocket(ws: WebSocket): void {
             if (session.isRecording && (msg as { type: 'transcript_text'; text: string }).text) {
               const text = (msg as { type: 'transcript_text'; text: string }).text.trim();
               if (text) {
-                session.transcriptBuffer += ' ' + text;
-                session.fullTranscript += ' ' + text;
-                session.chunkCount = (session.chunkCount || 0) + 1;
-
-                const transcriptMsg: TranscriptMessage = {
-                  type: 'transcript',
-                  text,
-                  isFinal: true,
-                };
-                send(ws, transcriptMsg);
-
-                if (session.chunkCount % CLEAN_CHUNK_INTERVAL === 0) {
-                  triggerCleanTranscript(ws, session);
-                }
-
-                if (shouldAnalyze(session)) {
-                  await triggerAnalysis(ws, session);
-                }
+                handleTranscriptText(ws, session, text, true);
               }
             }
             break;
@@ -261,8 +316,12 @@ export function handleWebSocket(ws: WebSocket): void {
     try {
       const buf = raw instanceof Buffer ? raw : Buffer.from(raw as ArrayBuffer);
       if (session.isRecording) {
-        audioAccumulator.push(buf);
-        scheduleFlush();
+        if (USE_DEEPGRAM && dgStream) {
+          dgStream.send(buf);
+        } else {
+          audioAccumulator.push(buf);
+          scheduleFlush();
+        }
       }
     } catch (err) {
       console.error('[WS] Message handling error:', err);
@@ -271,6 +330,7 @@ export function handleWebSocket(ws: WebSocket): void {
 
   ws.on('close', () => {
     session.isRecording = false;
+    stopDeepgram();
     if (flushTimer) clearTimeout(flushTimer);
     console.log(`[WS] Client disconnected: ${session.id}`);
   });

@@ -67,7 +67,25 @@ export function useWebSocket(): UseWebSocketReturn {
         switch (msg.type) {
           case 'transcript':
             if (msg.text) {
-              setTranscripts((prev) => [...prev, msg.text]);
+              if (msg.isFinal) {
+                // Final result: replace any interim line, then append
+                setTranscripts((prev) => {
+                  const filtered = prev.filter((t) => !t.startsWith('⏳'));
+                  return [...filtered, msg.text];
+                });
+              } else {
+                // Interim result: update last line in-place for real-time feel
+                setTranscripts((prev) => {
+                  const copy = [...prev];
+                  // Replace last interim or add new one
+                  if (copy.length > 0 && copy[copy.length - 1].startsWith('⏳')) {
+                    copy[copy.length - 1] = '⏳' + msg.text;
+                  } else {
+                    copy.push('⏳' + msg.text);
+                  }
+                  return copy;
+                });
+              }
             }
             break;
           case 'cleaned':

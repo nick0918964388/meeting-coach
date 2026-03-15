@@ -22,6 +22,7 @@ services:
       WHISPER_PROVIDER: "${WHISPER_PROVIDER:-groq}"
       OPENAI_API_KEY: "${OPENAI_API_KEY}"
       GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      DEEPGRAM_API_KEY: "${DEEPGRAM_API_KEY:-}"
     volumes:
       # Persist knowledge base and meeting data between restarts
       - knowledge_data:/app/.knowledge
