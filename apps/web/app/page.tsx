@@ -64,7 +64,7 @@ export default function Home() {
   const recorder = useAudioRecorder(
     isSherpaReady
       ? { processAudio, onTranscript: handleTranscript }
-      : { onChunk: handleChunk, chunkIntervalMs: 10000 }
+      : { onChunk: handleChunk, chunkIntervalMs: 5000 }
   );
 
   // Track elapsed time

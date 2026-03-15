@@ -13,7 +13,7 @@ import type {
 
 const ANALYSIS_INTERVAL_MS = 30 * 1000; // 30 seconds
 const ANALYSIS_WORD_THRESHOLD = 200;
-const AUDIO_CHUNK_DURATION_MS = 10000; // 10 seconds — short chunks hurt Whisper accuracy for Chinese
+const AUDIO_CHUNK_DURATION_MS = 5000; // 5 seconds — each chunk is now a complete file (stop/restart on client)
 const CLEAN_CHUNK_INTERVAL = 3; // 每 3 個 chunk 觸發一次修正
 
 function send(ws: WebSocket, msg: ServerMessage) {
@@ -147,32 +147,17 @@ export function handleWebSocket(ws: WebSocket): void {
   let audioAccumulator: Buffer[] = [];
   let audioAccumulatorDuration = 0;
   let flushTimer: NodeJS.Timeout | null = null;
-  // Fragmented containers (MP4/WebM): first chunk contains the init segment (header).
-  // Subsequent chunks are fragments and cannot be decoded without it.
-  let initSegment: Buffer | null = null;
+  // No longer needed: frontend now uses stop/restart MediaRecorder,
+  // producing complete self-contained audio files per chunk.
 
   console.log(`[WS] Client connected: ${session.id}`);
   sendStatus(ws, 'idle');
 
   async function flushAudio() {
     if (audioAccumulator.length === 0) return;
-    let combined = Buffer.concat(audioAccumulator);
+    const combined = Buffer.concat(audioAccumulator);
     audioAccumulator = [];
     audioAccumulatorDuration = 0;
-
-    // Fragmented container fix: WebM (EBML header) and MP4 (moov box) both need
-    // the init segment prepended to subsequent chunks for Whisper to decode.
-    const needsInitSegment = session.mimeType.startsWith('audio/mp4') ||
-      session.mimeType.startsWith('audio/webm');
-    if (needsInitSegment) {
-      if (!initSegment) {
-        // First flush — this IS the init segment (+ first audio data)
-        initSegment = combined;
-      } else {
-        // Subsequent flushes — prepend init segment so Whisper can decode
-        combined = Buffer.concat([initSegment, combined]);
-      }
-    }
 
     await processAudioChunk(ws, session, combined);
   }
@@ -205,7 +190,6 @@ export function handleWebSocket(ws: WebSocket): void {
             session.fullTranscript = '';
             session.lastAnalysisTime = Date.now();
             audioAccumulator = [];
-            initSegment = null;
             session.lastTranscript = '';
             sendStatus(ws, 'recording');
             console.log(`[WS] ${session.id}: Recording started (lang: ${session.language})`);

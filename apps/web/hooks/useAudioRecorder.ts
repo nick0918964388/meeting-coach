@@ -26,6 +26,8 @@ interface AudioRecorderOptions {
 }
 
 const TARGET_SAMPLE_RATE = 16000;
+// VAD: minimum RMS energy to consider a chunk as containing speech
+const SILENCE_RMS_THRESHOLD = 0.01;
 
 function downsample(buffer: Float32Array, fromRate: number, toRate: number): Float32Array {
   if (fromRate === toRate) return buffer;
@@ -39,7 +41,7 @@ function downsample(buffer: Float32Array, fromRate: number, toRate: number): Flo
 }
 
 export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorderReturn {
-  const { onChunk, processAudio, onTranscript, chunkIntervalMs = 3000 } = options;
+  const { onChunk, processAudio, onTranscript, chunkIntervalMs = 5000 } = options;
 
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [audioLevel, setAudioLevel] = useState(0);
@@ -54,6 +56,11 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
   const audioCtxRef = useRef<AudioContext | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const isPausedRef = useRef(false);
+  const chunkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const detectedMimeRef = useRef<string>('audio/webm');
+  const isStoppingRef = useRef(false);
+  // VAD: track RMS energy during each chunk interval
+  const maxRmsRef = useRef(0);
 
   const updateAudioLevel = useCallback(() => {
     if (!analyserRef.current) return;
@@ -61,6 +68,15 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     analyserRef.current.getByteFrequencyData(data);
     const avg = data.reduce((s, v) => s + v, 0) / data.length;
     setAudioLevel(Math.min(100, (avg / 128) * 100));
+
+    // VAD: compute RMS from time-domain data for silence detection
+    const timeDomain = new Float32Array(analyserRef.current.fftSize);
+    analyserRef.current.getFloatTimeDomainData(timeDomain);
+    let sum = 0;
+    for (let i = 0; i < timeDomain.length; i++) sum += timeDomain[i] * timeDomain[i];
+    const rms = Math.sqrt(sum / timeDomain.length);
+    if (rms > maxRmsRef.current) maxRmsRef.current = rms;
+
     animFrameRef.current = requestAnimationFrame(updateAudioLevel);
   }, []);
 
@@ -113,6 +129,29 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     updateAudioLevel();
   }, [processAudio, onTranscript, updateAudioLevel]);
 
+  // Start a new MediaRecorder instance on the existing stream
+  const startNewRecorder = useCallback((stream: MediaStream, mime: string) => {
+    const recorder = new MediaRecorder(stream, { mimeType: mime });
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = async (event) => {
+      console.log('[Recorder] ondataavailable size:', event.data.size, 'maxRms:', maxRmsRef.current.toFixed(4));
+      if (event.data.size > 0) {
+        // VAD: skip chunks that were mostly silence
+        if (maxRmsRef.current < SILENCE_RMS_THRESHOLD) {
+          console.log('[Recorder] Skipping silent chunk (RMS below threshold)');
+          return;
+        }
+        setChunkCount((c) => c + 1);
+        const buffer = await event.data.arrayBuffer();
+        onChunk?.(buffer);
+      }
+    };
+
+    maxRmsRef.current = 0;
+    recorder.start(); // No timeslice — we manually stop/restart for clean chunks
+  }, [onChunk]);
+
   const startMediaRecorderMode = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -144,28 +183,32 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
       : 'audio/ogg';
 
     setMimeType(detectedMimeType);
-    const recorder = new MediaRecorder(stream, { mimeType: detectedMimeType });
-    mediaRecorderRef.current = recorder;
+    detectedMimeRef.current = detectedMimeType;
 
-    recorder.ondataavailable = async (event) => {
-      console.log('[Recorder] ondataavailable size:', event.data.size);
-      if (event.data.size > 0) {
-        setChunkCount((c) => c + 1);
-        const buffer = await event.data.arrayBuffer();
-        onChunk?.(buffer);
+    // Start first recorder
+    startNewRecorder(stream, detectedMimeType);
+
+    // Periodically stop/restart to produce complete, self-contained audio files
+    chunkTimerRef.current = setInterval(() => {
+      if (isPausedRef.current || isStoppingRef.current) return;
+      const rec = mediaRecorderRef.current;
+      if (rec && rec.state === 'recording') {
+        rec.stop(); // triggers ondataavailable with a complete file
+        // Start a new recorder immediately on the same stream
+        startNewRecorder(stream, detectedMimeType);
       }
-    };
+    }, chunkIntervalMs);
 
-    recorder.start(chunkIntervalMs);
     setRecordingState('recording');
     updateAudioLevel();
     return detectedMimeType;
-  }, [onChunk, chunkIntervalMs, updateAudioLevel]);
+  }, [onChunk, chunkIntervalMs, updateAudioLevel, startNewRecorder]);
 
   const start = useCallback(async (): Promise<string | undefined> => {
     try {
       setError(null);
       isPausedRef.current = false;
+      isStoppingRef.current = false;
       if (processAudio && onTranscript) {
         await startSherpaMode();
         return 'sherpa-onnx';
@@ -182,9 +225,15 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
   }, [processAudio, onTranscript, startSherpaMode, startMediaRecorderMode]);
 
   const stop = useCallback(() => {
+    isStoppingRef.current = true;
     cancelAnimationFrame(animFrameRef.current);
     setAudioLevel(0);
     isPausedRef.current = false;
+
+    if (chunkTimerRef.current) {
+      clearInterval(chunkTimerRef.current);
+      chunkTimerRef.current = null;
+    }
 
     if (scriptProcessorRef.current) {
       scriptProcessorRef.current.disconnect();
