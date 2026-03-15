@@ -13,16 +13,15 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
     throw new Error('Missing DEEPGRAM_API_KEY environment variable');
   }
 
+  // Don't set encoding/sample_rate — let Deepgram auto-detect from WebM/MP4 container
   const params = new URLSearchParams({
     model: 'nova-2',
-    language: 'zh',
+    language: 'multi',
     smart_format: 'true',
     interim_results: 'true',
     utterance_end_ms: '1500',
     vad_events: 'true',
     endpointing: '500',
-    encoding: 'opus',
-    sample_rate: '48000',
   });
 
   const url = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
