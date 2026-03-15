@@ -17,7 +17,6 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
   const params = new URLSearchParams({
     model: 'nova-2',
     language: 'zh',
-    detect_language: 'true',
     smart_format: 'true',
     interim_results: 'true',
     utterance_end_ms: '1500',
@@ -54,6 +53,7 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
+      console.log(`[Deepgram] Received: type=${msg.type}`);
 
       if (msg.type === 'Results') {
         const alt = msg.channel?.alternatives?.[0];
@@ -62,6 +62,8 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
         const isFinal = msg.is_final === true;
         console.log(`[Deepgram] ${isFinal ? 'Final' : 'Interim'}: "${alt.transcript}"`);
         callbacks.onTranscript(alt.transcript, isFinal);
+      } else if (msg.type === 'Error' || msg.type === 'error') {
+        console.error(`[Deepgram] API Error:`, JSON.stringify(msg));
       }
     } catch (err) {
       // ignore parse errors
