@@ -8,3 +8,5 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
+apps/web/public/wasm/*.wasm
+apps/web/public/wasm/*.data
