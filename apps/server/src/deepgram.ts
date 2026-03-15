@@ -16,7 +16,8 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
   // Raw PCM audio from client (linear16, 16kHz, mono)
   const params = new URLSearchParams({
     model: 'nova-2',
-    language: 'multi',
+    language: 'zh',
+    detect_language: 'true',
     smart_format: 'true',
     interim_results: 'true',
     utterance_end_ms: '1500',
