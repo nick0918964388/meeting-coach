@@ -27,7 +27,8 @@ interface AudioRecorderOptions {
 
 const TARGET_SAMPLE_RATE = 16000;
 // VAD: minimum RMS energy to consider a chunk as containing speech
-const SILENCE_RMS_THRESHOLD = 0.01;
+// Set very low to avoid false-negative in noisy environments (car, office)
+const SILENCE_RMS_THRESHOLD = 0.001;
 
 function downsample(buffer: Float32Array, fromRate: number, toRate: number): Float32Array {
   if (fromRate === toRate) return buffer;
@@ -149,6 +150,7 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     };
 
     maxRmsRef.current = 0;
+    console.log('[Recorder] Starting new MediaRecorder');
     recorder.start(); // No timeslice — we manually stop/restart for clean chunks
   }, [onChunk]);
 
@@ -192,10 +194,13 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     chunkTimerRef.current = setInterval(() => {
       if (isPausedRef.current || isStoppingRef.current) return;
       const rec = mediaRecorderRef.current;
+      console.log('[Recorder] Chunk timer fired, recorder state:', rec?.state);
       if (rec && rec.state === 'recording') {
         rec.stop(); // triggers ondataavailable with a complete file
         // Start a new recorder immediately on the same stream
-        startNewRecorder(stream, detectedMimeType);
+        if (streamRef.current?.active) {
+          startNewRecorder(stream, detectedMimeType);
+        }
       }
     }, chunkIntervalMs);
 
