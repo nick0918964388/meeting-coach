@@ -13,7 +13,7 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
     throw new Error('Missing DEEPGRAM_API_KEY environment variable');
   }
 
-  // Don't set encoding/sample_rate — let Deepgram auto-detect from WebM/MP4 container
+  // Raw PCM audio from client (linear16, 16kHz, mono)
   const params = new URLSearchParams({
     model: 'nova-2',
     language: 'multi',
@@ -22,6 +22,9 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
     utterance_end_ms: '1500',
     vad_events: 'true',
     endpointing: '500',
+    encoding: 'linear16',
+    sample_rate: '16000',
+    channels: '1',
   });
 
   const url = `wss://api.deepgram.com/v1/listen?${params.toString()}`;

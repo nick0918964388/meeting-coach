@@ -189,23 +189,33 @@ export function useAudioRecorder(options: AudioRecorderOptions): UseAudioRecorde
     setMimeType(detectedMimeType);
     detectedMimeRef.current = detectedMimeType;
 
-    // Streaming mode (short interval ≤1s): use timeslice for continuous streaming (Deepgram)
+    // Streaming mode (short interval ≤1s): send raw PCM (linear16) via ScriptProcessor (Deepgram)
     // Chunked mode (long interval >1s): use stop/restart for complete files (Whisper)
     const isStreamingMode = chunkIntervalMs <= 1000;
 
     if (isStreamingMode) {
-      // Streaming: use timeslice, each ondataavailable sends a small chunk
-      const recorder = new MediaRecorder(stream, { mimeType: detectedMimeType });
-      mediaRecorderRef.current = recorder;
-      recorder.ondataavailable = async (event) => {
-        if (event.data.size > 0) {
-          setChunkCount((c) => c + 1);
-          const buffer = await event.data.arrayBuffer();
-          onChunk?.(buffer);
+      // Streaming: capture raw PCM and send as linear16 Int16Array
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      const scriptProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+      source.connect(scriptProcessor);
+      scriptProcessor.connect(audioCtx.destination);
+      scriptProcessorRef.current = scriptProcessor;
+
+      scriptProcessor.onaudioprocess = (e) => {
+        if (isPausedRef.current) return;
+        const inputData = e.inputBuffer.getChannelData(0);
+        const samples = downsample(new Float32Array(inputData), audioCtx.sampleRate, TARGET_SAMPLE_RATE);
+        // Convert Float32 [-1,1] to Int16 PCM
+        const pcm = new Int16Array(samples.length);
+        for (let i = 0; i < samples.length; i++) {
+          const s = Math.max(-1, Math.min(1, samples[i]));
+          pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
+        setChunkCount((c) => c + 1);
+        onChunk?.(pcm.buffer);
       };
-      console.log(`[Recorder] Starting streaming mode (${chunkIntervalMs}ms timeslice)`);
-      recorder.start(chunkIntervalMs);
+      setMimeType('audio/l16');
+      console.log('[Recorder] Starting streaming mode (raw PCM linear16)');
     } else {
       // Chunked: stop/restart to produce complete, self-contained audio files
       startNewRecorder(stream, detectedMimeType);
