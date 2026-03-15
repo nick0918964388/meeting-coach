@@ -147,27 +147,30 @@ export function handleWebSocket(ws: WebSocket): void {
   let audioAccumulator: Buffer[] = [];
   let audioAccumulatorDuration = 0;
   let flushTimer: NodeJS.Timeout | null = null;
-  // For fragmented MP4 (iOS Safari): first chunk contains the init segment (moov box).
+  // Fragmented containers (MP4/WebM): first chunk contains the init segment (header).
   // Subsequent chunks are fragments and cannot be decoded without it.
-  let mp4InitSegment: Buffer | null = null;
+  let initSegment: Buffer | null = null;
 
   console.log(`[WS] Client connected: ${session.id}`);
   sendStatus(ws, 'idle');
 
   async function flushAudio() {
-    if (audioAccumulator.length === 0 || !session.isRecording) return;
+    if (audioAccumulator.length === 0) return;
     let combined = Buffer.concat(audioAccumulator);
     audioAccumulator = [];
     audioAccumulatorDuration = 0;
 
-    // Fragmented MP4 fix: prepend init segment to every batch after the first
-    if (session.mimeType.startsWith('audio/mp4')) {
-      if (!mp4InitSegment) {
+    // Fragmented container fix: WebM (EBML header) and MP4 (moov box) both need
+    // the init segment prepended to subsequent chunks for Whisper to decode.
+    const needsInitSegment = session.mimeType.startsWith('audio/mp4') ||
+      session.mimeType.startsWith('audio/webm');
+    if (needsInitSegment) {
+      if (!initSegment) {
         // First flush — this IS the init segment (+ first audio data)
-        mp4InitSegment = combined;
+        initSegment = combined;
       } else {
         // Subsequent flushes — prepend init segment so Whisper can decode
-        combined = Buffer.concat([mp4InitSegment, combined]);
+        combined = Buffer.concat([initSegment, combined]);
       }
     }
 
@@ -202,7 +205,7 @@ export function handleWebSocket(ws: WebSocket): void {
             session.fullTranscript = '';
             session.lastAnalysisTime = Date.now();
             audioAccumulator = [];
-            mp4InitSegment = null;
+            initSegment = null;
             session.lastTranscript = '';
             sendStatus(ws, 'recording');
             console.log(`[WS] ${session.id}: Recording started (lang: ${session.language})`);
