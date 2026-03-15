@@ -19,7 +19,7 @@ const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
 ];
 
 export default function Home() {
-  const { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson, clearTranscripts } = useWebSocket();
+  const { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson, clearTranscripts, loadTranscripts } = useWebSocket();
   const {
     meetings,
     activeMeeting,
@@ -38,6 +38,17 @@ export default function Home() {
   const isSherpaReady = sherpaStatus === 'ready' && sttMode !== 'api';
 
   const [mobileTab, setMobileTab] = useState<MobileTab>('transcript');
+
+  // 切換會議時載入已儲存的逐字稿
+  const handleSelectMeeting = useCallback((id: string) => {
+    setActiveMeetingId(id);
+    const meeting = meetings.find((m) => m.id === id);
+    if (meeting && meeting.transcript.length > 0) {
+      loadTranscripts(meeting.transcript);
+    } else {
+      clearTranscripts();
+    }
+  }, [meetings, setActiveMeetingId, loadTranscripts, clearTranscripts]);
 
   // Recording timer
   const [elapsed, setElapsed] = useState(0);
@@ -215,7 +226,7 @@ export default function Home() {
           <ContextPanel
             meetings={meetings}
             activeMeeting={activeMeeting}
-            onSelectMeeting={setActiveMeetingId}
+            onSelectMeeting={handleSelectMeeting}
             onCreateMeeting={createMeeting}
             onDeleteMeeting={removeMeeting}
             loading={meetingsLoading}

@@ -18,6 +18,7 @@ export interface UseWebSocketReturn {
   send: (data: string | ArrayBuffer | Blob) => void;
   sendJson: (msg: object) => void;
   clearTranscripts: () => void;
+  loadTranscripts: (lines: string[]) => void;
 }
 
 const MAX_RECONNECT = 5;
@@ -156,5 +157,11 @@ export function useWebSocket(): UseWebSocketReturn {
     setCoaching(null);
   }, []);
 
-  return { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson, clearTranscripts };
+  const loadTranscripts = useCallback((lines: string[]) => {
+    setTranscripts(lines);
+    setCleanedTranscript('');
+    setCoaching(null);
+  }, []);
+
+  return { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson, clearTranscripts, loadTranscripts };
 }
