@@ -48,11 +48,13 @@ export async function transcribeAudio(
   const form = new FormData();
   form.append('file', new Blob([audioData], { type: mimeType }), `audio.${ext}`);
   form.append('model', provider.model);
-  form.append('language', language);
-  // Prompt hint: pass previous transcript to improve continuity and accuracy
-  if (promptHint) {
-    form.append('prompt', promptHint.slice(-200));
-  }
+  // Don't set language — let Whisper auto-detect between zh/en
+  // Use prompt to guide language and provide continuity context
+  const basePrompt = '這是一段中英文混合的會議錄音。This meeting may contain both Chinese and English.';
+  const prompt = promptHint
+    ? `${basePrompt} ${promptHint.slice(-200)}`
+    : basePrompt;
+  form.append('prompt', prompt);
 
   console.log(`[Whisper] Using ${WHISPER_PROVIDER} provider, model: ${provider.model}`);
 
