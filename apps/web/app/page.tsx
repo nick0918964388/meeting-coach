@@ -78,6 +78,22 @@ export default function Home() {
       : { onChunk: handleChunk, chunkIntervalMs: 250 }
   );
 
+  // 定時自動儲存逐字稿（每 30 秒）
+  useEffect(() => {
+    if (!activeMeetingId || recorder.recordingState !== 'recording') return;
+    const autoSave = setInterval(() => {
+      const lines = transcripts.filter((t) => !t.startsWith('⏳'));
+      if (lines.length > 0) {
+        saveMeeting(activeMeetingId, {
+          transcript: lines,
+          coaching: coaching ?? undefined,
+        });
+        console.log('[AutoSave] Saved', lines.length, 'lines');
+      }
+    }, 30000);
+    return () => clearInterval(autoSave);
+  }, [activeMeetingId, recorder.recordingState, transcripts, coaching, saveMeeting]);
+
   // Track elapsed time
   useEffect(() => {
     if (recorder.recordingState === 'recording') {
