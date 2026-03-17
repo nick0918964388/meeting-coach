@@ -65,7 +65,7 @@ export function useMeetings() {
   );
 
   const saveMeeting = useCallback(
-    async (id: string, updates: { transcript?: string[]; coaching?: unknown }) => {
+    async (id: string, updates: { transcript?: string[]; cleanedTranscript?: string; coaching?: unknown }) => {
       try {
         await fetch(`${SERVER}/api/meetings/${id}`, {
           method: 'PATCH',
