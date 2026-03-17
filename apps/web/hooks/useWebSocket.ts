@@ -26,7 +26,7 @@ export interface UseWebSocketReturn {
   send: (data: string | ArrayBuffer | Blob) => void;
   sendJson: (msg: object) => void;
   clearTranscripts: () => void;
-  loadTranscripts: (lines: string[]) => void;
+  loadTranscripts: (lines: string[], cleaned?: string, coach?: CoachMessage | null) => void;
 }
 
 const MAX_RECONNECT = 5;
