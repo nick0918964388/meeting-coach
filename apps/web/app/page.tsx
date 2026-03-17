@@ -82,7 +82,9 @@ export default function Home() {
   useEffect(() => {
     if (!activeMeetingId || recorder.recordingState !== 'recording') return;
     const autoSave = setInterval(() => {
-      const lines = transcripts.filter((t) => !t.startsWith('⏳'));
+      const lines = transcripts
+        .filter((t) => !t.isInterim)
+        .map((t) => t.speaker !== undefined ? `[講者${t.speaker + 1}] ${t.text}` : t.text);
       if (lines.length > 0) {
         saveMeeting(activeMeetingId, {
           transcript: lines,
@@ -142,8 +144,11 @@ export default function Home() {
     recorder.stop();
     sendJson({ type: 'stop' });
     if (activeMeetingId && transcripts.length > 0) {
+      const lines = transcripts
+        .filter((t) => !t.isInterim)
+        .map((t) => t.speaker !== undefined ? `[講者${t.speaker + 1}] ${t.text}` : t.text);
       saveMeeting(activeMeetingId, {
-        transcript: transcripts,
+        transcript: lines,
         coaching: coaching ?? undefined,
       });
     }
@@ -154,8 +159,11 @@ export default function Home() {
 
   const handleSaveTranscript = useCallback(() => {
     if (activeMeetingId && transcripts.length > 0) {
+      const lines = transcripts
+        .filter((t) => !t.isInterim)
+        .map((t) => t.speaker !== undefined ? `[講者${t.speaker + 1}] ${t.text}` : t.text);
       saveMeeting(activeMeetingId, {
-        transcript: transcripts.filter((t) => !t.startsWith('⏳')),
+        transcript: lines,
         coaching: coaching ?? undefined,
       });
       alert('逐字稿已儲存');

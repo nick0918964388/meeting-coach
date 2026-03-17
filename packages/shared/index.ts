@@ -36,6 +36,7 @@ export interface TranscriptMessage {
   type: 'transcript';
   text: string;
   isFinal: boolean;
+  speaker?: number; // speaker diarization index (0, 1, 2...)
 }
 
 export interface CleanedTranscriptMessage {

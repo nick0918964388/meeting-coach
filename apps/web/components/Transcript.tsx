@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import type { TranscriptLine } from '@/hooks/useWebSocket';
+
+const SPEAKER_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+
 interface TranscriptProps {
-  lines: string[];
+  lines: TranscriptLine[];
   cleanedText: string;
   isRecording: boolean;
   onSave?: () => void;
@@ -151,43 +155,70 @@ export function Transcript({ lines, cleanedText, isRecording, onSave, onClear }:
             <div style={{ padding: '12px' }}>
               {lines.map((line, idx) => {
                 const isLatest = idx === lines.length - 1 && isRecording;
+                const speakerColor = line.speaker !== undefined
+                  ? SPEAKER_COLORS[line.speaker % SPEAKER_COLORS.length]
+                  : undefined;
+                const prevSpeaker = idx > 0 ? lines[idx - 1].speaker : undefined;
+                const showSpeaker = line.speaker !== undefined && line.speaker !== prevSpeaker;
                 return (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      gap: '10px',
-                      marginBottom: '4px',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <span
-                      style={{
+                  <div key={idx}>
+                    {showSpeaker && (
+                      <div style={{
                         fontSize: '10px',
-                        color: '#bbb',
-                        minWidth: '36px',
-                        paddingTop: '3px',
-                        flexShrink: 0,
-                        fontFamily: 'monospace',
-                      }}
-                    >
-                      {String(idx + 1).padStart(2, '0')}:{String(Math.floor(idx * 3)).padStart(2, '0')}
-                    </span>
-                    <p
-                      className={isLatest ? 'typing-cursor' : ''}
+                        fontWeight: 700,
+                        color: speakerColor,
+                        marginTop: idx > 0 ? '10px' : '0',
+                        marginBottom: '2px',
+                      }}>
+                        講者 {(line.speaker ?? 0) + 1}
+                      </div>
+                    )}
+                    <div
                       style={{
-                        margin: 0,
-                        fontSize: '13px',
-                        lineHeight: 1.6,
-                        color: isLatest ? '#111' : '#333',
-                        flex: 1,
-                        background: isLatest ? '#f0f9ff' : 'transparent',
-                        padding: isLatest ? '2px 6px' : '2px 0',
-                        borderRadius: '3px',
+                        display: 'flex',
+                        gap: '10px',
+                        marginBottom: '4px',
+                        alignItems: 'flex-start',
                       }}
                     >
-                      {line}
-                    </p>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          color: '#bbb',
+                          minWidth: '36px',
+                          paddingTop: '3px',
+                          flexShrink: 0,
+                          fontFamily: 'monospace',
+                        }}
+                      >
+                        {String(idx + 1).padStart(2, '0')}:{String(Math.floor(idx * 3)).padStart(2, '0')}
+                      </span>
+                      {speakerColor && (
+                        <span style={{
+                          width: '3px',
+                          flexShrink: 0,
+                          background: speakerColor,
+                          borderRadius: '2px',
+                          alignSelf: 'stretch',
+                        }} />
+                      )}
+                      <p
+                        className={isLatest ? 'typing-cursor' : ''}
+                        style={{
+                          margin: 0,
+                          fontSize: '13px',
+                          lineHeight: 1.6,
+                          color: line.isInterim ? '#999' : isLatest ? '#111' : '#333',
+                          fontStyle: line.isInterim ? 'italic' : 'normal',
+                          flex: 1,
+                          background: isLatest ? '#f0f9ff' : 'transparent',
+                          padding: isLatest ? '2px 6px' : '2px 0',
+                          borderRadius: '3px',
+                        }}
+                      >
+                        {line.text}
+                      </p>
+                    </div>
                   </div>
                 );
               })}

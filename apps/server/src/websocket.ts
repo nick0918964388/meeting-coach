@@ -84,7 +84,8 @@ function handleTranscriptText(
   ws: WebSocket,
   session: SessionState,
   text: string,
-  isFinal: boolean
+  isFinal: boolean,
+  speaker?: number
 ): void {
   if (isFinal) {
     session.transcriptBuffer += ' ' + text;
@@ -97,6 +98,7 @@ function handleTranscriptText(
     type: 'transcript',
     text,
     isFinal,
+    ...(speaker !== undefined && { speaker }),
   };
   send(ws, transcriptMsg);
 
@@ -206,9 +208,9 @@ export function handleWebSocket(ws: WebSocket): void {
     }
     try {
       dgStream = createDeepgramStream({
-        onTranscript: (text, isFinal) => {
+        onTranscript: (text, isFinal, speaker) => {
           if (session.isRecording) {
-            handleTranscriptText(ws, session, text, isFinal);
+            handleTranscriptText(ws, session, text, isFinal, speaker);
           }
         },
         onError: (error) => {

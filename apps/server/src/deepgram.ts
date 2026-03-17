@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || '';
 
 export interface DeepgramStreamCallbacks {
-  onTranscript: (text: string, isFinal: boolean) => void;
+  onTranscript: (text: string, isFinal: boolean, speaker?: number) => void;
   onError: (error: Error) => void;
   onClose: () => void;
 }
@@ -22,6 +22,7 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
     utterance_end_ms: '1500',
     vad_events: 'true',
     endpointing: '500',
+    diarize: 'true',
     encoding: 'linear16',
     sample_rate: '16000',
     channels: '1',
@@ -60,8 +61,10 @@ export function createDeepgramStream(callbacks: DeepgramStreamCallbacks) {
         if (!alt || !alt.transcript) return;
 
         const isFinal = msg.is_final === true;
-        console.log(`[Deepgram] ${isFinal ? 'Final' : 'Interim'}: "${alt.transcript}"`);
-        callbacks.onTranscript(alt.transcript, isFinal);
+        // Extract speaker from first word's speaker field
+        const speaker = alt.words?.[0]?.speaker;
+        console.log(`[Deepgram] ${isFinal ? 'Final' : 'Interim'} [Speaker ${speaker ?? '?'}]: "${alt.transcript}"`);
+        callbacks.onTranscript(alt.transcript, isFinal, speaker);
       } else if (msg.type === 'Error' || msg.type === 'error') {
         console.error(`[Deepgram] API Error:`, JSON.stringify(msg));
       }

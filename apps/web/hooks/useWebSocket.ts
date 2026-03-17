@@ -8,9 +8,15 @@ const PING_INTERVAL = 30000; // 30 seconds - keep alive for Cloudflare
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+export interface TranscriptLine {
+  text: string;
+  speaker?: number;
+  isInterim?: boolean;
+}
+
 export interface UseWebSocketReturn {
   status: ConnectionStatus;
-  transcripts: string[];
+  transcripts: TranscriptLine[];
   cleanedTranscript: string;
   coaching: CoachMessage | null;
   connect: () => void;
@@ -27,7 +33,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
-  const [transcripts, setTranscripts] = useState<string[]>([]);
+  const [transcripts, setTranscripts] = useState<TranscriptLine[]>([]);
   const [cleanedTranscript, setCleanedTranscript] = useState<string>('');
   const [coaching, setCoaching] = useState<CoachMessage | null>(null);
   const reconnectAttempts = useRef(0);
@@ -70,20 +76,18 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'transcript':
             if (msg.text) {
               if (msg.isFinal) {
-                // Final result: replace any interim line, then append
                 setTranscripts((prev) => {
-                  const filtered = prev.filter((t) => !t.startsWith('⏳'));
-                  return [...filtered, msg.text];
+                  const filtered = prev.filter((t) => !t.isInterim);
+                  return [...filtered, { text: msg.text, speaker: msg.speaker }];
                 });
               } else {
-                // Interim result: update last line in-place for real-time feel
+                // Interim result: update last interim line in-place
                 setTranscripts((prev) => {
                   const copy = [...prev];
-                  // Replace last interim or add new one
-                  if (copy.length > 0 && copy[copy.length - 1].startsWith('⏳')) {
-                    copy[copy.length - 1] = '⏳' + msg.text;
+                  if (copy.length > 0 && copy[copy.length - 1].isInterim) {
+                    copy[copy.length - 1] = { text: msg.text, speaker: msg.speaker, isInterim: true };
                   } else {
-                    copy.push('⏳' + msg.text);
+                    copy.push({ text: msg.text, speaker: msg.speaker, isInterim: true });
                   }
                   return copy;
                 });
@@ -158,7 +162,7 @@ export function useWebSocket(): UseWebSocketReturn {
   }, []);
 
   const loadTranscripts = useCallback((lines: string[]) => {
-    setTranscripts(lines);
+    setTranscripts(lines.map((text) => ({ text })));
     setCleanedTranscript('');
     setCoaching(null);
   }, []);
