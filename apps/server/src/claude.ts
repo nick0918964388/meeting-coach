@@ -2,6 +2,7 @@ import type { CoachMessage } from '@meeting-coach/shared';
 import { searchKnowledge } from './knowledge.js';
 import { sendMessage, sendMessageStream } from './session-manager.js';
 import { ollamaChat } from './ollama.js';
+import { getCustomTerms } from './vocabularies.js';
 
 // 主題詞彙表 — 根據會議主題注入專業術語提示
 const TOPIC_VOCABULARIES: Record<string, string> = {
@@ -13,9 +14,15 @@ const TOPIC_VOCABULARIES: Record<string, string> = {
   'general': '',
 };
 
+function getVocabForTopic(topic: string): string {
+  const builtin = TOPIC_VOCABULARIES[topic] || '';
+  const custom = getCustomTerms(topic);
+  return [builtin, custom].filter(Boolean).join('、');
+}
+
 // 逐句快速修正 prompt（精簡版，追求速度）
 const QUICK_FIX_PROMPT = (text: string, topic: string, context: string) => {
-  const vocab = TOPIC_VOCABULARIES[topic] || '';
+  const vocab = getVocabForTopic(topic);
   const vocabHint = vocab
     ? `\n此會議主題相關的專業術語：${vocab}\n請優先使用這些術語來修正辨識錯誤。`
     : '';
@@ -28,7 +35,7 @@ ${context ? `\n前文：「${context}」` : ''}
 
 // 全文修正 prompt（完整版）
 const CLEAN_TRANSCRIPT_PROMPT = (rawText: string, topic: string) => {
-  const vocab = TOPIC_VOCABULARIES[topic] || '';
+  const vocab = getVocabForTopic(topic);
   const vocabHint = vocab
     ? `\n此會議主題相關的專業術語供你參考：\n${vocab}\n`
     : '';

@@ -174,10 +174,10 @@ export function useWebSocket(): UseWebSocketReturn {
     setCoaching(null);
   }, []);
 
-  const loadTranscripts = useCallback((lines: string[]) => {
+  const loadTranscripts = useCallback((lines: string[], cleaned?: string, coach?: CoachMessage | null) => {
     setTranscripts(lines.map((text) => ({ text })));
-    setCleanedTranscript('');
-    setCoaching(null);
+    setCleanedTranscript(cleaned || '');
+    setCoaching(coach ?? null);
   }, []);
 
   return { status, transcripts, cleanedTranscript, coaching, connect, disconnect, send, sendJson, clearTranscripts, loadTranscripts };

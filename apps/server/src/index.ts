@@ -6,6 +6,7 @@ import { handleWebSocket } from './websocket.js';
 import { addDocument, listDocuments, deleteDocument, searchKnowledge } from './knowledge.js';
 import { askQuestion, askQuestionStream, analyzeWithClaude } from './claude.js';
 import { listMeetings, getMeeting, createMeeting, updateMeeting, deleteMeeting } from './meetings.js';
+import { listVocabularies, upsertVocabulary, deleteVocabulary } from './vocabularies.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -170,13 +171,14 @@ async function main() {
     return { meeting };
   });
 
-  app.patch<{ Params: { id: string }; Body: { title?: string; transcript?: string[]; coaching?: unknown } }>(
+  app.patch<{ Params: { id: string }; Body: { title?: string; transcript?: string[]; cleanedTranscript?: string; coaching?: unknown } }>(
     '/api/meetings/:id',
     async (request, reply) => {
-      const { title, transcript, coaching } = request.body || {};
+      const { title, transcript, cleanedTranscript, coaching } = request.body || {};
       const updated = updateMeeting(request.params.id, {
         ...(title !== undefined && { title }),
         ...(transcript !== undefined && { transcript }),
+        ...(cleanedTranscript !== undefined && { cleanedTranscript }),
         ...(coaching !== undefined && { coaching: coaching as any }),
       });
       if (!updated) return reply.status(404).send({ error: 'Not found' });
@@ -186,6 +188,24 @@ async function main() {
 
   app.delete<{ Params: { id: string } }>('/api/meetings/:id', async (request, reply) => {
     const deleted = deleteMeeting(request.params.id);
+    if (!deleted) return reply.status(404).send({ error: 'Not found' });
+    return { success: true };
+  });
+
+  // Vocabularies CRUD
+  app.get('/api/vocabularies', async () => {
+    return { vocabularies: listVocabularies() };
+  });
+
+  app.post<{ Body: { name: string; key: string; terms: string } }>('/api/vocabularies', async (request, reply) => {
+    const { name, key, terms } = request.body || {};
+    if (!key || !name) return reply.status(400).send({ error: 'name and key are required' });
+    const vocab = upsertVocabulary({ name, key, terms: terms || '' });
+    return reply.status(201).send({ vocabulary: vocab });
+  });
+
+  app.delete<{ Params: { key: string } }>('/api/vocabularies/:key', async (request, reply) => {
+    const deleted = deleteVocabulary(request.params.key);
     if (!deleted) return reply.status(404).send({ error: 'Not found' });
     return { success: true };
   });

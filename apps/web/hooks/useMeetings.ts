@@ -8,6 +8,7 @@ export interface Meeting {
   date: string;
   createdAt: string;
   transcript: string[];
+  cleanedTranscript: string;
   coaching: unknown | null;
 }
 

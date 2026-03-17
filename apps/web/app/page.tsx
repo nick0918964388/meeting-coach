@@ -9,6 +9,8 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useSherpaOnnx } from '@/hooks/useSherpaOnnx';
 import { useMeetings } from '@/hooks/useMeetings';
+import { useVocabularies } from '@/hooks/useVocabularies';
+import { VocabularyManager } from '@/components/VocabularyManager';
 
 type MobileTab = 'context' | 'transcript' | 'coach';
 
@@ -37,15 +39,21 @@ export default function Home() {
   const [sttMode, setSttMode] = useState<'auto' | 'wasm' | 'api'>('api');
   const isSherpaReady = sherpaStatus === 'ready' && sttMode !== 'api';
   const [topic, setTopic] = useState<string>('general');
+  const { vocabularies } = useVocabularies();
+  const [showVocabManager, setShowVocabManager] = useState(false);
 
   const [mobileTab, setMobileTab] = useState<MobileTab>('transcript');
 
-  // 切換會議時載入已儲存的逐字稿
+  // 切換會議時載入所有已儲存資料
   const handleSelectMeeting = useCallback((id: string) => {
     setActiveMeetingId(id);
     const meeting = meetings.find((m) => m.id === id);
-    if (meeting && meeting.transcript.length > 0) {
-      loadTranscripts(meeting.transcript);
+    if (meeting) {
+      loadTranscripts(
+        meeting.transcript,
+        meeting.cleanedTranscript,
+        meeting.coaching as any,
+      );
     } else {
       clearTranscripts();
     }
@@ -89,6 +97,7 @@ export default function Home() {
       if (lines.length > 0) {
         saveMeeting(activeMeetingId, {
           transcript: lines,
+          cleanedTranscript: cleanedTranscript || undefined,
           coaching: coaching ?? undefined,
         });
         console.log('[AutoSave] Saved', lines.length, 'lines');
@@ -151,10 +160,11 @@ export default function Home() {
         .map((t) => t.speaker !== undefined ? `[講者${t.speaker + 1}] ${t.text}` : t.text);
       saveMeeting(activeMeetingId, {
         transcript: lines,
+        cleanedTranscript: cleanedTranscript || undefined,
         coaching: coaching ?? undefined,
       });
     }
-  }, [recorder, sendJson, activeMeetingId, transcripts, coaching, saveMeeting, isSherpaReady, flush, handleTranscript]);
+  }, [recorder, sendJson, activeMeetingId, transcripts, cleanedTranscript, coaching, saveMeeting, isSherpaReady, flush, handleTranscript]);
 
   const handlePause = useCallback(() => recorder.pause(), [recorder]);
   const handleResume = useCallback(() => recorder.resume(), [recorder]);
@@ -166,11 +176,12 @@ export default function Home() {
         .map((t) => t.speaker !== undefined ? `[講者${t.speaker + 1}] ${t.text}` : t.text);
       saveMeeting(activeMeetingId, {
         transcript: lines,
+        cleanedTranscript: cleanedTranscript || undefined,
         coaching: coaching ?? undefined,
       });
       alert('逐字稿已儲存');
     }
-  }, [activeMeetingId, transcripts, coaching, saveMeeting]);
+  }, [activeMeetingId, transcripts, cleanedTranscript, coaching, saveMeeting]);
 
   const handleClearTranscript = useCallback(() => {
     if (confirm('確定要清除目前的逐字稿嗎？')) {
@@ -243,7 +254,18 @@ export default function Home() {
             <option value="sales">業務/銷售</option>
             <option value="finance">財務/會計</option>
             <option value="hr">人資/管理</option>
+            {vocabularies
+              .filter((v) => !['supply-chain','software','sales','finance','hr','general'].includes(v.key))
+              .map((v) => <option key={v.key} value={v.key}>{v.name}</option>)
+            }
           </select>
+          <button
+            onClick={() => setShowVocabManager((v) => !v)}
+            style={{ background: '#0f172a', color: '#94a3b8', border: '1px solid #334155', borderRadius: '4px', padding: '2px 6px', fontSize: '10px', cursor: 'pointer' }}
+            title="管理詞彙"
+          >
+            ⚙
+          </button>
         </span>
         <span>asr: <span style={{ color: isSherpaReady ? '#4ade80' : '#facc15' }}>
           {sttMode === 'api' ? 'cloud-api' : sherpaStatus === 'loading' && loadingProgress
@@ -262,6 +284,13 @@ export default function Home() {
         <span>chunks: <span style={{ color: '#facc15' }}>{recorder.chunkCount}</span></span>
         <span>error: <span style={{ color: recorder.error ? '#f87171' : '#64748b' }}>{recorder.error || 'none'}</span></span>
       </div>
+
+      {/* Vocabulary Manager overlay */}
+      {showVocabManager && (
+        <div style={{ position: 'absolute', top: '90px', right: '16px', zIndex: 50, width: '360px', maxHeight: '70vh', overflowY: 'auto', boxShadow: '0 4px 24px rgba(0,0,0,0.3)', borderRadius: '8px' }}>
+          <VocabularyManager onClose={() => setShowVocabManager(false)} />
+        </div>
+      )}
 
       {/* Main content: 3-col on desktop, single-panel on mobile */}
       <div className="flex-1 flex overflow-hidden min-h-0">

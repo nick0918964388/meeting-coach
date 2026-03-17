@@ -12,6 +12,7 @@ export interface Meeting {
   date: string;
   createdAt: string;
   transcript: string[];
+  cleanedTranscript: string;
   coaching: {
     keyPoints: string[];
     suggestions: string[];
@@ -55,6 +56,7 @@ export function createMeeting(title: string): Meeting {
     date: new Date().toISOString().slice(0, 10),
     createdAt: new Date().toISOString(),
     transcript: [],
+    cleanedTranscript: '',
     coaching: null,
   };
   meetings.push(meeting);
@@ -66,7 +68,7 @@ export function createMeeting(title: string): Meeting {
   return meeting;
 }
 
-export function updateMeeting(id: string, updates: Partial<Pick<Meeting, 'title' | 'transcript' | 'coaching'>>): Meeting | null {
+export function updateMeeting(id: string, updates: Partial<Pick<Meeting, 'title' | 'transcript' | 'cleanedTranscript' | 'coaching'>>): Meeting | null {
   const meetings = load();
   const idx = meetings.findIndex((m) => m.id === id);
   if (idx === -1) return null;
