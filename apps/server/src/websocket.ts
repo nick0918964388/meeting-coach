@@ -15,7 +15,7 @@ import type {
 const ANALYSIS_INTERVAL_MS = 30 * 1000; // 30 seconds
 const ANALYSIS_WORD_THRESHOLD = 200;
 const AUDIO_CHUNK_DURATION_MS = 5000; // 5 seconds — fallback Whisper mode
-const CLEAN_CHUNK_INTERVAL = 3; // 每 3 個 chunk 觸發一次修正
+const CLEAN_WORD_THRESHOLD = 80; // 累積 80 字以上才觸發修正
 
 const USE_DEEPGRAM = isDeepgramEnabled();
 console.log(`[STT] Provider: ${USE_DEEPGRAM ? 'Deepgram (streaming)' : 'Whisper (chunked)'}`);
@@ -101,8 +101,8 @@ function handleTranscriptText(
   send(ws, transcriptMsg);
 
   if (isFinal) {
-    // 每 N 個 final chunk 觸發語意修正
-    if (session.chunkCount % CLEAN_CHUNK_INTERVAL === 0) {
+    // 累積足夠字數才觸發語意修正（避免 Deepgram 高頻 final 造成過多請求）
+    if (countWords(session.fullTranscript) % CLEAN_WORD_THRESHOLD < countWords(text)) {
       triggerCleanTranscript(ws, session);
     }
 

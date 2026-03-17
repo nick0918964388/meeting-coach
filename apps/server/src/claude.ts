@@ -3,20 +3,28 @@ import { searchKnowledge } from './knowledge.js';
 import { sendMessage, sendMessageStream } from './session-manager.js';
 import { ollamaChat } from './ollama.js';
 
-// 文字修正 prompt
-const CLEAN_TRANSCRIPT_PROMPT = (rawText: string) => `你是專業的語音轉文字後處理專家。
+// 文字修正 prompt — 針對中英夾雜會議場景優化
+const CLEAN_TRANSCRIPT_PROMPT = (rawText: string) => `你是專業的語音轉文字後處理專家，擅長處理繁體中文與英文夾雜的會議逐字稿。
 
-以下是語音轉文字的原始輸出，可能有斷句不完整、重複字詞、語意不通順的問題：
+以下是語音辨識的原始輸出，可能有以下問題：
+- 中英文切換時辨識錯誤（例如英文單字被錯誤轉成中文發音，或中文被轉成無意義的英文）
+- 專業術語拼寫錯誤（如 API、deploy、server、database、Kubernetes 等 IT 用語）
+- 斷句不完整、重複字詞、語意不通順
 
 ---
 ${rawText}
 ---
 
 請修正上述文字：
-1. 修正斷句，讓句子完整通順
-2. 移除重複或無意義的字詞
-3. 保持原意，不要添加新內容
-4. 使用適當的標點符號
+1. 修正中英夾雜的辨識錯誤：根據上下文判斷應該是中文還是英文，還原正確的詞
+   - 例如「迪普萊」→「deploy」、「撕拉開」→「Slack」、「瑟佛」→「server」
+   - 例如「the 問題」→「這個問題」或保持原樣（視上下文）
+2. 修正英文專有名詞和縮寫的大小寫拼寫（如 api → API, github → GitHub）
+3. 修正斷句，讓句子完整通順
+4. 移除重複或無意義的字詞
+5. 保持原意，不要添加新內容
+6. 中文部分使用繁體中文，英文部分保持英文
+7. 使用適當的標點符號
 
 只輸出修正後的文字，不要任何說明或格式標記。`;
 
