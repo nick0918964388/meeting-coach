@@ -34,8 +34,9 @@ export default function Home() {
   const { status: sherpaStatus, loadingProgress, processAudio, flush } = useSherpaOnnx();
   
   // STT mode: 'auto' uses Sherpa if ready, 'wasm' forces Sherpa, 'api' forces backend Groq/Whisper
-  const [sttMode, setSttMode] = useState<'auto' | 'wasm' | 'api'>('api'); // Default to API (Groq) for speed
+  const [sttMode, setSttMode] = useState<'auto' | 'wasm' | 'api'>('api');
   const isSherpaReady = sherpaStatus === 'ready' && sttMode !== 'api';
+  const [topic, setTopic] = useState<string>('general');
 
   const [mobileTab, setMobileTab] = useState<MobileTab>('transcript');
 
@@ -128,6 +129,7 @@ export default function Home() {
           language: 'zh',
           meetingId: activeMeetingId,
           mimeType: detectedMime || 'audio/webm',
+          topic,
         },
       });
     } catch (err) {
@@ -217,6 +219,30 @@ export default function Home() {
             <option value="api">☁️ API (快)</option>
             <option value="wasm">🖥 WASM 本地</option>
             <option value="auto">⚡ 自動</option>
+          </select>
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          主題:
+          <select
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            disabled={recorder.recordingState !== 'idle'}
+            style={{
+              background: '#0f172a',
+              color: '#38bdf8',
+              border: '1px solid #334155',
+              borderRadius: '4px',
+              padding: '2px 4px',
+              fontSize: '11px',
+              cursor: recorder.recordingState !== 'idle' ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <option value="general">通用</option>
+            <option value="supply-chain">庫存/供應鏈</option>
+            <option value="software">軟體開發/IT</option>
+            <option value="sales">業務/銷售</option>
+            <option value="finance">財務/會計</option>
+            <option value="hr">人資/管理</option>
           </select>
         </span>
         <span>asr: <span style={{ color: isSherpaReady ? '#4ade80' : '#facc15' }}>

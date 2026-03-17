@@ -217,6 +217,9 @@ export function Transcript({ lines, cleanedText, isRecording, onSave, onClear }:
                         }}
                       >
                         {line.text}
+                        {line.isCorrection && (
+                          <span style={{ fontSize: '9px', color: '#22c55e', marginLeft: '4px' }} title="AI 已修正">✓</span>
+                        )}
                       </p>
                     </div>
                   </div>

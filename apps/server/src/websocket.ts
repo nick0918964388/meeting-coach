@@ -1,7 +1,7 @@
 import type { WebSocket } from 'ws';
 import type { SessionState } from './types.js';
 import { transcribeAudio } from './whisper.js';
-import { analyzeWithClaude, cleanTranscript } from './claude.js';
+import { analyzeWithClaude, cleanTranscript, quickFixTranscript } from './claude.js';
 import { createDeepgramStream, isDeepgramEnabled } from './deepgram.js';
 import type {
   ClientMessage,
@@ -88,22 +88,40 @@ function handleTranscriptText(
   speaker?: number
 ): void {
   if (isFinal) {
+    const currentLineIndex = session.lineIndex++;
     session.transcriptBuffer += ' ' + text;
     session.fullTranscript += ' ' + text;
-    session.lastTranscript = text;
     session.chunkCount = (session.chunkCount || 0) + 1;
-  }
 
-  const transcriptMsg: TranscriptMessage = {
-    type: 'transcript',
-    text,
-    isFinal,
-    ...(speaker !== undefined && { speaker }),
-  };
-  send(ws, transcriptMsg);
+    // 立即送出原始文字
+    send(ws, {
+      type: 'transcript',
+      text,
+      isFinal: true,
+      lineIndex: currentLineIndex,
+      ...(speaker !== undefined && { speaker }),
+    } as TranscriptMessage);
 
-  if (isFinal) {
-    // 累積足夠字數才觸發語意修正（避免 Deepgram 高頻 final 造成過多請求）
+    // 非同步逐句修正 — 修正後替換原始行
+    const recentContext = session.lastTranscript;
+    session.lastTranscript = text;
+    quickFixTranscript(text, session.topic, recentContext)
+      .then((fixed) => {
+        if (fixed && fixed !== text) {
+          console.log(`[QuickFix] "${text}" → "${fixed}"`);
+          send(ws, {
+            type: 'transcript',
+            text: fixed,
+            isFinal: true,
+            lineIndex: currentLineIndex,
+            isCorrection: true,
+            ...(speaker !== undefined && { speaker }),
+          } as TranscriptMessage);
+        }
+      })
+      .catch(() => { /* ignore correction failures */ });
+
+    // 累積足夠字數觸發全文修正
     if (countWords(session.fullTranscript) % CLEAN_WORD_THRESHOLD < countWords(text)) {
       triggerCleanTranscript(ws, session);
     }
@@ -112,6 +130,14 @@ function handleTranscriptText(
     if (shouldAnalyze(session)) {
       triggerAnalysis(ws, session);
     }
+  } else {
+    // Interim — 直接送出，不修正
+    send(ws, {
+      type: 'transcript',
+      text,
+      isFinal: false,
+      ...(speaker !== undefined && { speaker }),
+    } as TranscriptMessage);
   }
 }
 
@@ -120,7 +146,7 @@ function triggerCleanTranscript(ws: WebSocket, session: SessionState): void {
   const textToClean = session.fullTranscript.trim();
   if (!textToClean || textToClean.length < 20) return;
 
-  cleanTranscript(textToClean)
+  cleanTranscript(textToClean, session.topic)
     .then((cleaned) => {
       const cleanedMsg: CleanedTranscriptMessage = {
         type: 'cleaned',
@@ -160,6 +186,7 @@ export function handleWebSocket(ws: WebSocket): void {
     language: 'zh',
     meetingId: 'global',
     mimeType: 'audio/webm',
+    topic: 'general',
     transcriptBuffer: '',
     fullTranscript: '',
     lastAnalysisTime: Date.now(),
@@ -167,6 +194,7 @@ export function handleWebSocket(ws: WebSocket): void {
     audioBuffer: [],
     chunkCount: 0,
     lastTranscript: '',
+    lineIndex: 0,
   };
 
   // Whisper fallback state
@@ -247,12 +275,14 @@ export function handleWebSocket(ws: WebSocket): void {
             session.language = msg.config?.language || 'zh';
             session.meetingId = msg.config?.meetingId || 'global';
             session.mimeType = msg.config?.mimeType || 'audio/webm';
-            console.log(`[WS] ${session.id}: Start recording (${USE_DEEPGRAM ? 'Deepgram' : 'Whisper'}), mimeType: ${session.mimeType}`);
+            session.topic = msg.config?.topic || 'general';
+            console.log(`[WS] ${session.id}: Start recording (${USE_DEEPGRAM ? 'Deepgram' : 'Whisper'}), topic: ${session.topic}`);
             session.transcriptBuffer = '';
             session.fullTranscript = '';
             session.lastAnalysisTime = Date.now();
             session.lastTranscript = '';
             session.chunkCount = 0;
+            session.lineIndex = 0;
 
             if (USE_DEEPGRAM) {
               startDeepgram();

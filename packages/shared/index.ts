@@ -7,6 +7,7 @@ export interface StartMessage {
     language: string;
     meetingId?: string;
     mimeType?: string;
+    topic?: string; // meeting domain for terminology correction
   };
 }
 
@@ -36,7 +37,9 @@ export interface TranscriptMessage {
   type: 'transcript';
   text: string;
   isFinal: boolean;
-  speaker?: number; // speaker diarization index (0, 1, 2...)
+  speaker?: number;      // speaker diarization index (0, 1, 2...)
+  lineIndex?: number;    // line position for in-place correction
+  isCorrection?: boolean; // true = this replaces a previous raw line
 }
 
 export interface CleanedTranscriptMessage {

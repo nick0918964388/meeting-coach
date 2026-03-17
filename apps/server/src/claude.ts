@@ -3,23 +3,47 @@ import { searchKnowledge } from './knowledge.js';
 import { sendMessage, sendMessageStream } from './session-manager.js';
 import { ollamaChat } from './ollama.js';
 
-// 文字修正 prompt — 針對中英夾雜會議場景優化
-const CLEAN_TRANSCRIPT_PROMPT = (rawText: string) => `你是專業的語音轉文字後處理專家，擅長處理繁體中文與英文夾雜的會議逐字稿。
+// 主題詞彙表 — 根據會議主題注入專業術語提示
+const TOPIC_VOCABULARIES: Record<string, string> = {
+  'supply-chain': `庫存管理、供應鏈、採購、進貨、出貨、物流、倉儲、WMS、ERP、MRP、BOM、SKU、MOQ、lead time、safety stock、reorder point、backorder、fulfillment、3PL、vendor、supplier、procurement、inventory turnover、stockout、overstock、demand forecasting、JIT（Just In Time）、EOQ`,
+  'software': `API、deploy、server、database、Kubernetes、Docker、CI/CD、Git、GitHub、PR（Pull Request）、code review、sprint、backlog、Jira、Scrum、microservice、frontend、backend、DevOps、cloud、AWS、GCP、Azure、latency、throughput、scalability、refactor、bug、hotfix、release、staging、production`,
+  'sales': `業績、營收、毛利、客戶、報價、訂單、合約、CRM、pipeline、lead、conversion、quota、forecast、ARR、MRR、churn、upsell、cross-sell、POC、RFP、SLA、onboarding`,
+  'finance': `財報、損益表、資產負債表、現金流、EBITDA、ROI、ROE、毛利率、淨利率、應收帳款、應付帳款、折舊、攤提、稅務、audit、compliance、budget、forecast、variance、capex、opex`,
+  'hr': `人資、招聘、面試、onboarding、KPI、OKR、績效考核、薪資、福利、培訓、離職率、headcount、JD（Job Description）、offer、probation、retention`,
+  'general': '',
+};
 
-以下是語音辨識的原始輸出，可能有以下問題：
-- 中英文切換時辨識錯誤（例如英文單字被錯誤轉成中文發音，或中文被轉成無意義的英文）
-- 專業術語拼寫錯誤（如 API、deploy、server、database、Kubernetes 等 IT 用語）
-- 斷句不完整、重複字詞、語意不通順
+// 逐句快速修正 prompt（精簡版，追求速度）
+const QUICK_FIX_PROMPT = (text: string, topic: string, context: string) => {
+  const vocab = TOPIC_VOCABULARIES[topic] || '';
+  const vocabHint = vocab
+    ? `\n此會議主題相關的專業術語：${vocab}\n請優先使用這些術語來修正辨識錯誤。`
+    : '';
+
+  return `修正以下語音辨識文字。只修正明顯錯誤，保持原意，輸出繁體中文，英文術語保持英文。${vocabHint}
+${context ? `\n前文：「${context}」` : ''}
+原文：「${text}」
+修正：`;
+};
+
+// 全文修正 prompt（完整版）
+const CLEAN_TRANSCRIPT_PROMPT = (rawText: string, topic: string) => {
+  const vocab = TOPIC_VOCABULARIES[topic] || '';
+  const vocabHint = vocab
+    ? `\n此會議主題相關的專業術語供你參考：\n${vocab}\n`
+    : '';
+
+  return `你是專業的語音轉文字後處理專家，擅長處理繁體中文與英文夾雜的會議逐字稿。${vocabHint}
+
+以下是語音辨識的原始輸出：
 
 ---
 ${rawText}
 ---
 
 請修正上述文字：
-1. 修正中英夾雜的辨識錯誤：根據上下文判斷應該是中文還是英文，還原正確的詞
-   - 例如「迪普萊」→「deploy」、「撕拉開」→「Slack」、「瑟佛」→「server」
-   - 例如「the 問題」→「這個問題」或保持原樣（視上下文）
-2. 修正英文專有名詞和縮寫的大小寫拼寫（如 api → API, github → GitHub）
+1. 修正中英夾雜的辨識錯誤：根據上下文和主題術語判斷正確的詞
+2. 修正英文專有名詞和縮寫的大小寫拼寫
 3. 修正斷句，讓句子完整通順
 4. 移除重複或無意義的字詞
 5. 保持原意，不要添加新內容
@@ -27,15 +51,36 @@ ${rawText}
 7. 使用適當的標點符號
 
 只輸出修正後的文字，不要任何說明或格式標記。`;
+};
+
+export const AVAILABLE_TOPICS = Object.keys(TOPIC_VOCABULARIES);
+
+// 逐句快速修正（用於 Option A 即時修正）
+export async function quickFixTranscript(
+  text: string,
+  topic: string,
+  recentContext: string
+): Promise<string> {
+  if (!text || text.trim().length < 2) return text;
+
+  try {
+    const fixed = await ollamaChat(QUICK_FIX_PROMPT(text, topic, recentContext), 8000);
+    // 如果 LLM 回傳太長或明顯不對，fallback 到原文
+    if (!fixed || fixed.length > text.length * 3) return text;
+    return fixed.trim();
+  } catch {
+    return text; // 失敗時返回原文，不阻塞
+  }
+}
 
 // 修正文字語意
-export async function cleanTranscript(rawText: string): Promise<string> {
+export async function cleanTranscript(rawText: string, topic = 'general'): Promise<string> {
   if (!rawText || rawText.trim().length < 10) {
     return rawText;
   }
 
   try {
-    const cleaned = await ollamaChat(CLEAN_TRANSCRIPT_PROMPT(rawText), 20000);
+    const cleaned = await ollamaChat(CLEAN_TRANSCRIPT_PROMPT(rawText, topic), 20000);
     return cleaned || rawText;
   } catch (err) {
     console.error('[Ollama] Clean transcript error:', err);

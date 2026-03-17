@@ -12,6 +12,8 @@ export interface TranscriptLine {
   text: string;
   speaker?: number;
   isInterim?: boolean;
+  lineIndex?: number;
+  isCorrection?: boolean;
 }
 
 export interface UseWebSocketReturn {
@@ -75,10 +77,21 @@ export function useWebSocket(): UseWebSocketReturn {
         switch (msg.type) {
           case 'transcript':
             if (msg.text) {
-              if (msg.isFinal) {
+              if (msg.isCorrection && msg.lineIndex !== undefined) {
+                // Correction: replace existing line in-place
+                setTranscripts((prev) => {
+                  const copy = [...prev];
+                  // Find the line with matching lineIndex
+                  const idx = copy.findIndex((t) => t.lineIndex === msg.lineIndex && !t.isInterim);
+                  if (idx >= 0) {
+                    copy[idx] = { ...copy[idx], text: msg.text, isCorrection: true };
+                  }
+                  return copy;
+                });
+              } else if (msg.isFinal) {
                 setTranscripts((prev) => {
                   const filtered = prev.filter((t) => !t.isInterim);
-                  return [...filtered, { text: msg.text, speaker: msg.speaker }];
+                  return [...filtered, { text: msg.text, speaker: msg.speaker, lineIndex: msg.lineIndex }];
                 });
               } else {
                 // Interim result: update last interim line in-place

@@ -4,11 +4,13 @@ export interface SessionState {
   language: string;
   meetingId: string;
   mimeType: string;
+  topic: string;
   transcriptBuffer: string;
   fullTranscript: string;
   lastAnalysisTime: number;
   wordCount: number;
   audioBuffer: Buffer[];
   chunkCount: number;
-  lastTranscript: string; // previous transcript for Whisper prompt hint
+  lastTranscript: string;
+  lineIndex: number; // current line counter for correction tracking
 }
