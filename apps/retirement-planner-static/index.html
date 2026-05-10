@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="退休試算" />
+<meta name="theme-color" content="#0d1117" />
+<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%E6%B7%A8%E8%B3%87%E7%94%A2%E9%80%80%E4%BC%91%E8%A9%A6%E7%AE%97%E5%99%A8%22%2C%22short_name%22%3A%22%E9%80%80%E4%BC%91%E8%A9%A6%E7%AE%97%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230d1117%22%2C%22theme_color%22%3A%22%230d1117%22%7D" />
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>📊</text></svg>" />
+<title>淨資產退休試算器</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #1f2630;
+  --bg-hover: #222a35;
+  --border: #2a3340;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --text-dim: #6e7681;
+  --accent: #58a6ff;
+  --accent-2: #7ee787;
+  --warn: #f78166;
+  --danger: #f85149;
+  --success: #3fb950;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+               "Microsoft JhengHei", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  height: 100vh;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+button { font-family: inherit; }
+input, select, textarea { font-family: inherit; font-size: 16px; /* avoid iOS zoom */ }
+
+/* ---- Top bar ---- */
+.topbar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+
+.topbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+  min-width: 0;
+}
+
+.brand .logo { font-size: 20px; }
+
+.sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+.field-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field-inline input,
+.field-inline select {
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  min-width: 90px;
+}
+
+.field-inline input:focus,
+.field-inline select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ---- Buttons ---- */
+.btn {
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn:hover, .btn:active { background: var(--bg-hover); border-color: #3a4654; }
+.btn-primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+.btn-primary:hover, .btn-primary:active { background: #388bfd; border-color: #388bfd; }
+.btn-accent { background: #2ea043; border-color: #2ea043; color: #fff; }
+.btn-accent:hover, .btn-accent:active { background: #3fb950; border-color: #3fb950; }
+.btn-danger { background: transparent; color: var(--danger); border-color: var(--border); }
+.btn-danger:hover, .btn-danger:active { background: rgba(248,81,73,0.15); border-color: var(--danger); }
+.btn-ghost { background: transparent; border-color: transparent; }
+.btn-ghost:hover { background: var(--bg-hover); }
+.btn-mini { padding: 3px 8px; font-size: 12px; }
+
+/* ---- Layout ---- */
+.layout {
+  display: flex;
+  height: calc(100vh - 110px);
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg-2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.year-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+.year-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left: 3px solid transparent;
+}
+
+.year-item:hover, .year-item:active { background: var(--bg-hover); }
+.year-item.active {
+  background: rgba(88, 166, 255, 0.1);
+  border-left-color: var(--accent);
+}
+.year-item .y-label { font-weight: 600; }
+.year-item .y-value { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.year-item .y-delete {
+  margin-left: 6px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+}
+.year-item .y-delete:hover, .year-item .y-delete:active { color: var(--danger); }
+
+/* ---- Editor ---- */
+.editor {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 80px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.empty-hint {
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 50px;
+  font-size: 15px;
+}
+
+.editor h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.section h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.section h3 .icon { font-size: 17px; }
+.section h3 .hint { color: var(--text-dim); font-size: 11px; font-weight: 400; }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.field label { font-size: 11px; color: var(--text-muted); }
+
+.field input,
+.field textarea {
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+}
+
+.field textarea { min-height: 60px; resize: vertical; }
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+
+/* ---- Expense table ---- */
+.expense-table { display: grid; gap: 6px; }
+
+.expense-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 0.8fr 0.9fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.expense-row.header {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 0 4px 4px;
+}
+
+.expense-row input {
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.expense-row input:focus { outline: none; border-color: var(--accent); }
+
+.expense-row .row-total {
+  color: var(--text-muted);
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding-right: 4px;
+}
+
+.expense-row .btn-mini { padding: 4px 8px; }
+
+.add-row-btn {
+  margin-top: 8px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed var(--border);
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.add-row-btn:hover, .add-row-btn:active {
+  background: rgba(88,166,255,0.08);
+  border-color: var(--accent);
+}
+
+.expense-totals {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.expense-totals strong { color: var(--text); margin-left: 4px; }
+
+/* ---- Computed cards ---- */
+.computed-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.card .label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.card .value {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.value.positive { color: var(--success); }
+.value.negative { color: var(--danger); }
+
+/* ---- Modals ---- */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px 10px;
+  overflow-y: auto;
+  z-index: 100;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal.hidden { display: none; }
+
+.modal-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  max-width: 920px;
+  width: 100%;
+  margin-bottom: 30px;
+  box-shadow: var(--shadow);
+}
+
+.modal-card.wide { max-width: 1200px; }
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.modal-head h2 { margin: 0; font-size: 17px; }
+
+/* ---- Tables ---- */
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table th, .data-table td {
+  padding: 7px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+
+.data-table th {
+  background: var(--bg-3);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.data-table tbody tr:hover { background: var(--bg-hover); }
+.data-table tr.highlight { background: rgba(63,185,80,0.12); }
+.data-table tr.projected td { color: var(--text-muted); font-style: italic; }
+
+/* ---- Sim summary ---- */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* ---- Compare ---- */
+.compare-controls {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: var(--bg-3);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.compare-checklist {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.compare-checklist label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.progress-bar {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 12px;
+  width: 100px;
+  overflow: hidden;
+}
+
+.progress-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #1f6feb, #3fb950);
+  transition: width 0.3s;
+}
+
+.compare-detail { margin-top: 16px; }
+.compare-detail h3 { margin: 0 0 6px; font-size: 13px; color: var(--text-muted); }
+
+/* ---- Toast ---- */
+#toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  box-shadow: var(--shadow);
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+/* ---- Mobile responsive ---- */
+@media (max-width: 720px) {
+  .layout { flex-direction: column; height: auto; min-height: calc(100vh - 130px); }
+  .sidebar { width: 100%; max-height: 180px; border-right: none; border-bottom: 1px solid var(--border); }
+  .year-list { display: flex; flex-wrap: wrap; padding: 8px; gap: 6px; }
+  .year-item {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border-left: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-3);
+  }
+  .year-item.active { background: rgba(88,166,255,0.18); border-color: var(--accent); }
+  .editor { padding: 14px 12px 80px; }
+  .topbar-row { gap: 6px; }
+  .topbar-row .btn { padding: 5px 8px; font-size: 12px; }
+  .field-inline { font-size: 11px; }
+  .field-inline input { min-width: 70px; }
+  .expense-row { grid-template-columns: 1.3fr 0.9fr 0.8fr 0.9fr auto; }
+  .expense-row.header { font-size: 9px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <div class="brand"><span class="logo">📊</span><span>淨資產退休試算器</span></div>
+    <button id="btn-export" class="btn" title="匯出 JSON 備份">⬇️ 匯出</button>
+    <button id="btn-import" class="btn" title="從 JSON 匯入">⬆️ 匯入</button>
+    <input id="file-import" type="file" accept="application/json" style="display:none" />
+  </div>
+  <div class="topbar-row">
+    <label class="field-inline">
+      <span>計畫</span>
+      <select id="plan-select"></select>
+    </label>
+    <button id="btn-new-plan" class="btn">＋ 新計畫</button>
+    <button id="btn-dup-plan" class="btn">📄 複製</button>
+    <button id="btn-rename-plan" class="btn">✏️</button>
+    <button id="btn-delete-plan" class="btn btn-danger">🗑️</button>
+    <span class="sep"></span>
+    <label class="field-inline">
+      <span>目標 (萬)</span>
+      <input id="plan-target" type="number" step="100" />
+    </label>
+    <button id="btn-simulate" class="btn btn-primary">📈 模擬</button>
+    <button id="btn-compare" class="btn btn-accent">⚖️ 比較</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span>年度</span>
+      <button id="btn-add-year" class="btn btn-mini">＋ 新增</button>
+    </div>
+    <ul id="year-list" class="year-list"></ul>
+  </aside>
+
+  <section id="editor" class="editor">
+    <div class="empty-hint">尚未選取年度</div>
+  </section>
+</main>
+
+<div id="modal-simulate" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="sim-title">📈 模擬到目標</h2>
+      <button class="btn btn-ghost" data-close="#modal-simulate">✕</button>
+    </div>
+    <div id="sim-summary" class="summary-row"></div>
+    <div class="table-wrap">
+      <table id="sim-table" class="data-table">
+        <thead>
+          <tr><th>年度</th><th>類型</th><th>年收入</th><th>總支出</th><th>年報酬</th><th>淨現金流</th><th>年末投資</th><th>年末淨資產</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="modal-compare" class="modal hidden">
+  <div class="modal-card wide">
+    <div class="modal-head">
+      <h2>⚖️ 計畫比較</h2>
+      <button class="btn btn-ghost" data-close="#modal-compare">✕</button>
+    </div>
+    <div class="compare-controls">
+      <label class="field-inline">
+        <span>目標 (萬)</span>
+        <input id="compare-target" type="number" step="100" value="4000" />
+      </label>
+      <div id="compare-checklist" class="compare-checklist"></div>
+      <button id="btn-run-compare" class="btn btn-primary">執行比較</button>
+    </div>
+    <div class="table-wrap">
+      <table id="compare-summary-table" class="data-table">
+        <thead>
+          <tr><th>計畫</th><th>目標</th><th>達成年</th><th>所需年數</th><th>最終淨資產</th><th>達成率</th><th>進度</th></tr>
+        </thead>
+      </table>
+    </div>
+    <div class="compare-detail">
+      <h3>各年淨資產走勢</h3>
+      <div class="table-wrap"><table id="compare-detail-table" class="data-table"></table></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+// ============================================================
+// 資料層 — localStorage
+// ============================================================
+
+const STORAGE_KEY = "retirement_planner_v1";
+
+function defaultData() {
+  let nextId = 1;
+  const id = () => nextId++;
+  const monthlyTpl = [
+    { name: "生活費", amount: 8.0, months: 12 },
+    { name: "房貸",   amount: 10.0, months: 12 },
+    { name: "信貸",   amount: 6.0,  months: 12 },
+    { name: "房租",   amount: 3.0,  months: 12 },
+    { name: "其他",   amount: 3.1,  months: 12 },
+  ];
+  let investment = 2561, netWorth = 2561;
+  const years = [];
+  for (let yr = 2026; yr <= 2030; yr++) {
+    const mItems = monthlyTpl.map((t, i) =>
+      ({ id: id(), name: t.name, amount: t.amount, months: t.months, sort_order: i }));
+    const aItems = [{ id: id(), name: "保險", amount: 6.0, sort_order: 0 }];
+    years.push({
+      id: id(), year: yr,
+      annual_income: 280, investment, net_worth: netWorth,
+      return_rate: 0.06, pledge_rate: 0.025, finance_rate: 0.015,
+      notes: "",
+      monthly_expenses: mItems, annual_expenses: aItems,
+    });
+    const monthlyTotal = mItems.reduce((s, m) => s + m.amount * m.months, 0);
+    const annualTotal = aItems.reduce((s, a) => s + a.amount, 0);
+    const annualReturn = investment * 0.06;
+    const pledgeCost = investment * 0.025;
+    const financeIncome = investment * 0.015;
+    const netCF = 280 - monthlyTotal - annualTotal - pledgeCost + financeIncome;
+    investment = +(investment + annualReturn + netCF).toFixed(2);
+    netWorth = investment;
+  }
+  return {
+    next_id: nextId,
+    plans: [{
+      id: id(), name: "基礎計畫", target_amount: 4000,
+      created_at: new Date().toISOString(), years,
+    }],
+  };
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultData();
+    const parsed = JSON.parse(raw);
+    if (!parsed.plans) return defaultData();
+    return parsed;
+  } catch {
+    return defaultData();
+  }
+}
+
+function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data)); }
+function nextId() { return state.data.next_id++; }
+
+const state = {
+  data: loadData(),
+  currentPlanId: null,
+  currentYearId: null,
+};
+
+// initial selection
+if (state.data.plans.length) {
+  state.currentPlanId = state.data.plans[0].id;
+  if (state.data.plans[0].years.length) {
+    state.currentYearId = state.data.plans[0].years[0].id;
+  }
+}
+saveData();
+
+const getPlan = (id) => state.data.plans.find((p) => p.id === id);
+const currentPlan = () => getPlan(state.currentPlanId);
+const currentYear = () => currentPlan()?.years.find((y) => y.id === state.currentYearId);
+
+// ============================================================
+// 計算
+// ============================================================
+
+function computeYear(y) {
+  const monthlyTotal = y.monthly_expenses.reduce((s, m) => s + (+m.amount || 0) * (+m.months || 0), 0);
+  const annualTotal = y.annual_expenses.reduce((s, a) => s + (+a.amount || 0), 0);
+  const totalExpenses = monthlyTotal + annualTotal;
+  const annualReturn = (+y.investment || 0) * (+y.return_rate || 0);
+  const pledgeCost = (+y.investment || 0) * (+y.pledge_rate || 0);
+  const financeIncome = (+y.investment || 0) * (+y.finance_rate || 0);
+  const netCashFlow = (+y.annual_income || 0) - totalExpenses - pledgeCost + financeIncome;
+  const endInvestment = (+y.investment || 0) + annualReturn + netCashFlow;
+  const endNetWorth = (+y.net_worth || 0) + annualReturn + netCashFlow;
+  const r = (n) => +Number(n).toFixed(2);
+  return {
+    monthly_total: r(monthlyTotal),
+    annual_total: r(annualTotal),
+    total_expenses: r(totalExpenses),
+    annual_return: r(annualReturn),
+    pledge_cost: r(pledgeCost),
+    finance_income: r(financeIncome),
+    net_cash_flow: r(netCashFlow),
+    end_investment: r(endInvestment),
+    end_net_worth: r(endNetWorth),
+  };
+}
+
+function simulatePlan(plan, target, maxYears = 50) {
+  const rows = [];
+  if (!plan.years.length) {
+    return { target, rows, reached_year: null, achievement_rate: 0, final_net_worth: 0,
+             plan_id: plan.id, plan_name: plan.name };
+  }
+  let investment = +plan.years[0].investment;
+  let netWorth = +plan.years[0].net_worth;
+  let reached = null;
+  for (const y of plan.years) {
+    const c = computeYear(y);
+    rows.push({
+      year: y.year, source: "explicit",
+      annual_income: y.annual_income, total_expenses: c.total_expenses,
+      annual_return: c.annual_return, net_cash_flow: c.net_cash_flow,
+      end_investment: c.end_investment, end_net_worth: c.end_net_worth,
+    });
+    netWorth = c.end_net_worth;
+    investment = c.end_investment;
+    if (reached == null && netWorth >= target) reached = y.year;
+  }
+  const tpl = plan.years[plan.years.length - 1];
+  const monthlyTotal = tpl.monthly_expenses.reduce((s, m) => s + (+m.amount || 0) * (+m.months || 0), 0);
+  const annualTotal = tpl.annual_expenses.reduce((s, a) => s + (+a.amount || 0), 0);
+  const income = +tpl.annual_income;
+  const rr = +tpl.return_rate, pr = +tpl.pledge_rate, fr = +tpl.finance_rate;
+  let yr = +tpl.year, extra = 0;
+  while (extra < maxYears && (reached == null || netWorth < target * 1.1)) {
+    yr++; extra++;
+    const annualReturn = investment * rr;
+    const pledgeCost = investment * pr;
+    const financeIncome = investment * fr;
+    const netCF = income - monthlyTotal - annualTotal - pledgeCost + financeIncome;
+    investment = +(investment + annualReturn + netCF).toFixed(2);
+    netWorth = +(netWorth + annualReturn + netCF).toFixed(2);
+    rows.push({
+      year: yr, source: "projected",
+      annual_income: income, total_expenses: +(monthlyTotal + annualTotal).toFixed(2),
+      annual_return: +annualReturn.toFixed(2), net_cash_flow: +netCF.toFixed(2),
+      end_investment: investment, end_net_worth: netWorth,
+    });
+    if (reached == null && netWorth >= target) reached = yr;
+    if (reached != null && yr - reached >= 2) break;
+  }
+  return {
+    target, rows, reached_year: reached,
+    achievement_rate: target > 0 ? +(netWorth / target).toFixed(4) : 0,
+    final_net_worth: netWorth, plan_id: plan.id, plan_name: plan.name,
+  };
+}
+
+// ============================================================
+// 工具
+// ============================================================
+
+const fmt = (n, d = 1) => (n == null || isNaN(n) ? "—"
+  : Number(n).toLocaleString("zh-TW", { maximumFractionDigits: d, minimumFractionDigits: 0 }));
+const fmtPct = (r) => (r == null || isNaN(r) ? "—" : `${(r * 100).toFixed(2)}%`);
+const escapeHtml = (s) => String(s ?? "")
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+let saveTimer = null;
+function debouncedSave(fn) { clearTimeout(saveTimer); saveTimer = setTimeout(fn, 300); }
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+// ============================================================
+// 渲染
+// ============================================================
+
+function renderAll() {
+  renderPlanSelect();
+  renderYearList();
+  renderEditor();
+  saveData();
+}
+
+function renderPlanSelect() {
+  const sel = document.getElementById("plan-select");
+  sel.innerHTML = "";
+  for (const p of state.data.plans) {
+    const opt = document.createElement("option");
+    opt.value = p.id; opt.textContent = p.name;
+    sel.appendChild(opt);
+  }
+  if (state.currentPlanId) sel.value = state.currentPlanId;
+  const plan = currentPlan();
+  document.getElementById("plan-target").value = plan ? plan.target_amount : 4000;
+}
+
+function renderYearList() {
+  const ul = document.getElementById("year-list");
+  ul.innerHTML = "";
+  const plan = currentPlan();
+  if (!plan) return;
+  for (const y of plan.years) {
+    const c = computeYear(y);
+    const li = document.createElement("li");
+    li.className = "year-item" + (y.id === state.currentYearId ? " active" : "");
+    li.innerHTML = `
+      <div>
+        <div class="y-label">${y.year}</div>
+        <div class="y-value">淨資產 ${fmt(c.end_net_worth)} 萬</div>
+      </div>
+      <button class="y-delete" title="刪除">✕</button>`;
+    li.addEventListener("click", () => { state.currentYearId = y.id; renderAll(); });
+    li.querySelector(".y-delete").addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!confirm(`確定刪除 ${y.year} 年？`)) return;
+      plan.years = plan.years.filter((x) => x.id !== y.id);
+      if (state.currentYearId === y.id) {
+        state.currentYearId = plan.years[0]?.id ?? null;
+      }
+      renderAll();
+    });
+    ul.appendChild(li);
+  }
+}
+
+function renderEditor() {
+  const root = document.getElementById("editor");
+  const plan = currentPlan();
+  if (!plan) { root.innerHTML = `<div class="empty-hint">尚未建立任何計畫</div>`; return; }
+  if (!plan.years.length) { root.innerHTML = `<div class="empty-hint">請點擊「＋ 新增」建立年度</div>`; return; }
+  const y = currentYear();
+  if (!y) { root.innerHTML = `<div class="empty-hint">請選取年度</div>`; return; }
+  const c = computeYear(y);
+
+  root.innerHTML = `
+    <h2>📅 ${y.year} 年度</h2>
+
+    <div class="section">
+      <h3><span class="icon">💰</span>收入與投資 <span class="hint">(單位：萬)</span></h3>
+      <div class="grid-2">
+        <div class="field"><label>年收入 (萬)</label>
+          <input type="number" step="1" data-y="annual_income" value="${y.annual_income}"></div>
+        <div class="field"><label>年初投資部位 (萬)</label>
+          <input type="number" step="1" data-y="investment" value="${y.investment}"></div>
+        <div class="field"><label>年初淨資產 (萬)</label>
+          <input type="number" step="1" data-y="net_worth" value="${y.net_worth}"></div>
+        <div class="field"><label>報酬率 (%)</label>
+          <input type="number" step="0.1" data-y-pct="return_rate" value="${(y.return_rate*100).toFixed(2)}"></div>
+        <div class="field"><label>質押利率 (%)</label>
+          <input type="number" step="0.1" data-y-pct="pledge_rate" value="${(y.pledge_rate*100).toFixed(2)}"></div>
+        <div class="field"><label>理財型利率 (%)</label>
+          <input type="number" step="0.1" data-y-pct="finance_rate" value="${(y.finance_rate*100).toFixed(2)}"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><span class="icon">📉</span>月支出項目 <span class="hint">每項可獨立設定月份數，預設 12</span></h3>
+      <div class="expense-table">
+        <div class="expense-row header">
+          <div>項目</div>
+          <div style="text-align:right">金額(萬/月)</div>
+          <div style="text-align:right">月份數</div>
+          <div style="text-align:right">小計</div>
+          <div></div>
+        </div>
+        ${y.monthly_expenses.map((m) => `
+          <div class="expense-row" data-monthly-id="${m.id}">
+            <input type="text" data-m="name" value="${escapeHtml(m.name)}" placeholder="項目名稱">
+            <input type="number" step="0.1" data-m="amount" value="${m.amount}" style="text-align:right">
+            <input type="number" step="1" min="0" max="12" data-m="months" value="${m.months}" style="text-align:right">
+            <div class="row-total">${fmt(m.amount*m.months)} 萬/年</div>
+            <button class="btn btn-mini btn-danger" data-del-monthly="${m.id}">✕</button>
+          </div>
+        `).join("")}
+      </div>
+      <button class="add-row-btn" data-add="monthly">＋ 新增月支出項目</button>
+      <div class="expense-totals">
+        月支出年化合計 <strong>${fmt(c.monthly_total)} 萬</strong>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><span class="icon">🏗️</span>年度固定支出</h3>
+      <div class="expense-table">
+        <div class="expense-row header" style="grid-template-columns:1.4fr 1fr 1fr auto auto;">
+          <div>項目</div>
+          <div style="text-align:right">金額(萬/年)</div><div></div><div></div><div></div>
+        </div>
+        ${y.annual_expenses.map((a) => `
+          <div class="expense-row" data-annual-id="${a.id}" style="grid-template-columns:1.4fr 1fr 1fr auto auto;">
+            <input type="text" data-a="name" value="${escapeHtml(a.name)}" placeholder="項目名稱">
+            <input type="number" step="0.1" data-a="amount" value="${a.amount}" style="text-align:right">
+            <div></div><div></div>
+            <button class="btn btn-mini btn-danger" data-del-annual="${a.id}">✕</button>
+          </div>
+        `).join("")}
+      </div>
+      <button class="add-row-btn" data-add="annual">＋ 新增年度固定支出</button>
+      <div class="expense-totals">
+        年度固定合計 <strong>${fmt(c.annual_total)} 萬</strong>
+        ・ 全年總支出 <strong>${fmt(c.total_expenses)} 萬</strong>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><span class="icon">📊</span>即時計算</h3>
+      <div class="computed-cards">
+        <div class="card"><div class="label">年報酬</div>
+          <div class="value positive">${fmt(c.annual_return)} 萬</div></div>
+        <div class="card"><div class="label">質押成本</div>
+          <div class="value negative">${fmt(c.pledge_cost)} 萬</div></div>
+        <div class="card"><div class="label">理財型收益</div>
+          <div class="value positive">${fmt(c.finance_income)} 萬</div></div>
+        <div class="card"><div class="label">淨現金流</div>
+          <div class="value ${c.net_cash_flow >= 0 ? 'positive' : 'negative'}">${fmt(c.net_cash_flow)} 萬</div></div>
+        <div class="card"><div class="label">年末投資部位</div>
+          <div class="value">${fmt(c.end_investment)} 萬</div></div>
+        <div class="card"><div class="label">年末淨資產</div>
+          <div class="value">${fmt(c.end_net_worth)} 萬</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><span class="icon">📝</span>備註</h3>
+      <div class="field"><textarea data-y="notes" placeholder="本年度備註">${escapeHtml(y.notes||"")}</textarea></div>
+    </div>
+  `;
+
+  bindEditor(y);
+}
+
+function bindEditor(y) {
+  document.querySelectorAll("[data-y]").forEach((el) => {
+    el.addEventListener("input", () => debouncedSave(() => {
+      const k = el.dataset.y;
+      y[k] = el.type === "number" ? +el.value || 0 : el.value;
+      saveData();
+      renderYearList();
+    }));
+  });
+  document.querySelectorAll("[data-y-pct]").forEach((el) => {
+    el.addEventListener("input", () => debouncedSave(() => {
+      y[el.dataset.yPct] = (+el.value || 0) / 100;
+      saveData();
+      renderYearList();
+      // refresh computed cards inline (not full rerender to keep focus)
+      const c = computeYear(y);
+      const cards = document.querySelectorAll(".computed-cards .card .value");
+      const vals = [c.annual_return, c.pledge_cost, c.finance_income, c.net_cash_flow, c.end_investment, c.end_net_worth];
+      cards.forEach((v, i) => v.textContent = `${fmt(vals[i])} 萬`);
+    }));
+  });
+
+  document.querySelectorAll("[data-monthly-id]").forEach((row) => {
+    const id = +row.dataset.monthlyId;
+    const item = y.monthly_expenses.find((x) => x.id === id);
+    row.querySelectorAll("[data-m]").forEach((el) => {
+      el.addEventListener("input", () => debouncedSave(() => {
+        item[el.dataset.m] = el.type === "number" ? +el.value || 0 : el.value;
+        const subtotal = (item.amount || 0) * (item.months || 0);
+        row.querySelector(".row-total").textContent = `${fmt(subtotal)} 萬/年`;
+        // update totals + computed
+        const c = computeYear(y);
+        document.querySelectorAll(".section:nth-of-type(2) .expense-totals strong")[0].textContent = `${fmt(c.monthly_total)} 萬`;
+        const totalsEl = document.querySelectorAll(".section:nth-of-type(3) .expense-totals strong");
+        if (totalsEl.length >= 2) {
+          totalsEl[0].textContent = `${fmt(c.annual_total)} 萬`;
+          totalsEl[1].textContent = `${fmt(c.total_expenses)} 萬`;
+        }
+        updateComputedCards(y);
+        saveData();
+        renderYearList();
+      }));
+    });
+  });
+  document.querySelectorAll("[data-del-monthly]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const id = +b.dataset.delMonthly;
+      y.monthly_expenses = y.monthly_expenses.filter((x) => x.id !== id);
+      renderAll();
+    });
+  });
+
+  document.querySelectorAll("[data-annual-id]").forEach((row) => {
+    const id = +row.dataset.annualId;
+    const item = y.annual_expenses.find((x) => x.id === id);
+    row.querySelectorAll("[data-a]").forEach((el) => {
+      el.addEventListener("input", () => debouncedSave(() => {
+        item[el.dataset.a] = el.type === "number" ? +el.value || 0 : el.value;
+        const c = computeYear(y);
+        const totalsEl = document.querySelectorAll(".section:nth-of-type(3) .expense-totals strong");
+        if (totalsEl.length >= 2) {
+          totalsEl[0].textContent = `${fmt(c.annual_total)} 萬`;
+          totalsEl[1].textContent = `${fmt(c.total_expenses)} 萬`;
+        }
+        updateComputedCards(y);
+        saveData();
+        renderYearList();
+      }));
+    });
+  });
+  document.querySelectorAll("[data-del-annual]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const id = +b.dataset.delAnnual;
+      y.annual_expenses = y.annual_expenses.filter((x) => x.id !== id);
+      renderAll();
+    });
+  });
+
+  document.querySelectorAll("[data-add]").forEach((b) => {
+    b.addEventListener("click", () => {
+      if (b.dataset.add === "monthly") {
+        const so = y.monthly_expenses.length;
+        y.monthly_expenses.push({ id: nextId(), name: "新項目", amount: 0, months: 12, sort_order: so });
+      } else {
+        const so = y.annual_expenses.length;
+        y.annual_expenses.push({ id: nextId(), name: "新項目", amount: 0, sort_order: so });
+      }
+      renderAll();
+    });
+  });
+}
+
+function updateComputedCards(y) {
+  const c = computeYear(y);
+  const cards = document.querySelectorAll(".computed-cards .card");
+  if (cards.length < 6) return;
+  cards[0].querySelector(".value").textContent = `${fmt(c.annual_return)} 萬`;
+  cards[1].querySelector(".value").textContent = `${fmt(c.pledge_cost)} 萬`;
+  cards[2].querySelector(".value").textContent = `${fmt(c.finance_income)} 萬`;
+  const cf = cards[3].querySelector(".value");
+  cf.textContent = `${fmt(c.net_cash_flow)} 萬`;
+  cf.className = "value " + (c.net_cash_flow >= 0 ? "positive" : "negative");
+  cards[4].querySelector(".value").textContent = `${fmt(c.end_investment)} 萬`;
+  cards[5].querySelector(".value").textContent = `${fmt(c.end_net_worth)} 萬`;
+}
+
+// ============================================================
+// 頂部按鈕
+// ============================================================
+
+document.getElementById("plan-select").addEventListener("change", (e) => {
+  state.currentPlanId = +e.target.value;
+  state.currentYearId = currentPlan()?.years[0]?.id ?? null;
+  renderAll();
+});
+
+document.getElementById("btn-new-plan").addEventListener("click", () => {
+  const name = prompt("新計畫名稱：", `計畫 ${state.data.plans.length + 1}`);
+  if (!name) return;
+  const plan = {
+    id: nextId(), name, target_amount: 4000,
+    created_at: new Date().toISOString(), years: [],
+  };
+  state.data.plans.push(plan);
+  state.currentPlanId = plan.id;
+  state.currentYearId = null;
+  renderAll();
+});
+
+document.getElementById("btn-dup-plan").addEventListener("click", () => {
+  const src = currentPlan();
+  if (!src) return;
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id = nextId();
+  copy.name = src.name + " 副本";
+  copy.created_at = new Date().toISOString();
+  copy.years = copy.years.map((y) => {
+    y.id = nextId();
+    y.monthly_expenses = y.monthly_expenses.map((m) => ({ ...m, id: nextId() }));
+    y.annual_expenses = y.annual_expenses.map((a) => ({ ...a, id: nextId() }));
+    return y;
+  });
+  state.data.plans.push(copy);
+  state.currentPlanId = copy.id;
+  state.currentYearId = copy.years[0]?.id ?? null;
+  renderAll();
+  toast("已複製計畫");
+});
+
+document.getElementById("btn-rename-plan").addEventListener("click", () => {
+  const p = currentPlan();
+  if (!p) return;
+  const name = prompt("新名稱：", p.name);
+  if (!name) return;
+  p.name = name;
+  renderAll();
+});
+
+document.getElementById("btn-delete-plan").addEventListener("click", () => {
+  const p = currentPlan();
+  if (!p) return;
+  if (!confirm(`確定刪除「${p.name}」？此動作無法復原（請先匯出備份）。`)) return;
+  state.data.plans = state.data.plans.filter((x) => x.id !== p.id);
+  state.currentPlanId = state.data.plans[0]?.id ?? null;
+  state.currentYearId = currentPlan()?.years[0]?.id ?? null;
+  renderAll();
+});
+
+document.getElementById("plan-target").addEventListener("change", (e) => {
+  const p = currentPlan();
+  if (!p) return;
+  p.target_amount = +e.target.value || 0;
+  saveData();
+});
+
+document.getElementById("btn-add-year").addEventListener("click", () => {
+  const plan = currentPlan();
+  if (!plan) { alert("請先建立計畫"); return; }
+  const last = plan.years[plan.years.length - 1];
+  let y;
+  if (last) {
+    const c = computeYear(last);
+    y = {
+      id: nextId(), year: last.year + 1,
+      annual_income: last.annual_income,
+      investment: c.end_investment, net_worth: c.end_net_worth,
+      return_rate: last.return_rate, pledge_rate: last.pledge_rate, finance_rate: last.finance_rate,
+      notes: "",
+      monthly_expenses: last.monthly_expenses.map((m) => ({ ...m, id: nextId() })),
+      annual_expenses: last.annual_expenses.map((a) => ({ ...a, id: nextId() })),
+    };
+  } else {
+    y = {
+      id: nextId(), year: 2026,
+      annual_income: 280, investment: 2561, net_worth: 2561,
+      return_rate: 0.06, pledge_rate: 0.025, finance_rate: 0.015,
+      notes: "", monthly_expenses: [], annual_expenses: [],
+    };
+  }
+  plan.years.push(y);
+  state.currentYearId = y.id;
+  renderAll();
+});
+
+// ============================================================
+// 模擬 + 比較
+// ============================================================
+
+document.getElementById("btn-simulate").addEventListener("click", () => {
+  const plan = currentPlan();
+  if (!plan) return;
+  const target = +document.getElementById("plan-target").value || plan.target_amount;
+  const data = simulatePlan(plan, target);
+  document.getElementById("sim-title").textContent = `📈 模擬到目標 — ${plan.name}`;
+  document.getElementById("sim-summary").innerHTML = `
+    <div class="card"><div class="label">目標</div><div class="value">${fmt(data.target)} 萬</div></div>
+    <div class="card"><div class="label">達成年</div><div class="value">${data.reached_year ?? "未達成"}</div></div>
+    <div class="card"><div class="label">最終淨資產</div><div class="value">${fmt(data.final_net_worth)} 萬</div></div>
+    <div class="card"><div class="label">達成率</div>
+      <div class="value ${data.achievement_rate>=1?'positive':''}">${fmtPct(data.achievement_rate)}</div></div>`;
+  document.querySelector("#sim-table tbody").innerHTML = data.rows.map((r) => `
+    <tr class="${r.source==='projected'?'projected':''} ${data.reached_year===r.year?'highlight':''}">
+      <td>${r.year}</td><td>${r.source==='projected'?'推算':'輸入'}</td>
+      <td>${fmt(r.annual_income)}</td><td>${fmt(r.total_expenses)}</td>
+      <td>${fmt(r.annual_return)}</td><td>${fmt(r.net_cash_flow)}</td>
+      <td>${fmt(r.end_investment)}</td><td><strong>${fmt(r.end_net_worth)}</strong></td>
+    </tr>`).join("");
+  document.getElementById("modal-simulate").classList.remove("hidden");
+});
+
+document.getElementById("btn-compare").addEventListener("click", () => {
+  const list = document.getElementById("compare-checklist");
+  list.innerHTML = state.data.plans.map((p) =>
+    `<label><input type="checkbox" value="${p.id}" checked> ${escapeHtml(p.name)}</label>`).join("");
+  document.getElementById("compare-target").value = currentPlan()?.target_amount ?? 4000;
+  document.querySelector("#compare-summary-table tbody")?.remove();
+  document.getElementById("compare-detail-table").innerHTML = "";
+  document.getElementById("modal-compare").classList.remove("hidden");
+});
+
+document.getElementById("btn-run-compare").addEventListener("click", () => {
+  const ids = [...document.querySelectorAll("#compare-checklist input:checked")].map((el) => +el.value);
+  if (!ids.length) { alert("請至少勾選一個計畫"); return; }
+  const target = +document.getElementById("compare-target").value || 4000;
+  const data = ids.map((id) => simulatePlan(getPlan(id), target));
+
+  const sumTable = document.getElementById("compare-summary-table");
+  sumTable.querySelector("tbody")?.remove();
+  const tbody = document.createElement("tbody");
+  for (const p of data) {
+    const startYear = p.rows[0]?.year;
+    const yrs = p.reached_year && startYear ? p.reached_year - startYear + 1 : null;
+    const pct = Math.min(p.achievement_rate * 100, 200);
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${escapeHtml(p.plan_name)}</strong></td>
+        <td>${fmt(p.target)}</td>
+        <td>${p.reached_year ?? "未達成"}</td>
+        <td>${yrs ?? "—"}</td>
+        <td>${fmt(p.final_net_worth)}</td>
+        <td>${fmtPct(p.achievement_rate)}</td>
+        <td><div class="progress-bar"><span style="width:${Math.min(pct,100)}%"></span></div></td>
+      </tr>`;
+  }
+  sumTable.appendChild(tbody);
+
+  const allYears = new Set();
+  data.forEach((p) => p.rows.forEach((r) => allYears.add(r.year)));
+  const sorted = [...allYears].sort();
+  document.getElementById("compare-detail-table").innerHTML = `
+    <thead><tr><th>年度</th>${data.map((p) => `<th>${escapeHtml(p.plan_name)}</th>`).join("")}</tr></thead>
+    <tbody>${sorted.map((yr) => `
+      <tr><td>${yr}</td>${data.map((p) => {
+        const row = p.rows.find((r) => r.year === yr);
+        const reached = row && row.end_net_worth >= p.target;
+        return `<td class="${reached?'highlight':''}">${row ? fmt(row.end_net_worth) : '—'}</td>`;
+      }).join("")}</tr>`).join("")}</tbody>`;
+});
+
+// ============================================================
+// 匯出 / 匯入
+// ============================================================
+
+document.getElementById("btn-export").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state.data, null, 2)],
+                       { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `retirement-planner-backup-${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast("已匯出備份檔");
+});
+
+document.getElementById("btn-import").addEventListener("click", () => {
+  document.getElementById("file-import").click();
+});
+
+document.getElementById("file-import").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.plans || !Array.isArray(data.plans)) throw new Error("格式錯誤");
+    if (!confirm(`匯入後會覆蓋現有資料 (${state.data.plans.length} 個計畫 → ${data.plans.length} 個計畫)，確定？`)) {
+      e.target.value = "";
+      return;
+    }
+    state.data = data;
+    if (!state.data.next_id) {
+      let max = 0;
+      const visit = (o) => {
+        if (typeof o === "object" && o) {
+          if (typeof o.id === "number" && o.id > max) max = o.id;
+          for (const v of Object.values(o)) visit(v);
+        }
+      };
+      visit(state.data);
+      state.data.next_id = max + 1;
+    }
+    state.currentPlanId = state.data.plans[0]?.id ?? null;
+    state.currentYearId = currentPlan()?.years[0]?.id ?? null;
+    renderAll();
+    toast("匯入完成");
+  } catch (err) {
+    alert("匯入失敗：" + err.message);
+  } finally {
+    e.target.value = "";
+  }
+});
+
+// ============================================================
+// Modal close
+// ============================================================
+
+document.querySelectorAll("[data-close]").forEach((b) =>
+  b.addEventListener("click", () => document.querySelector(b.dataset.close).classList.add("hidden")));
+document.querySelectorAll(".modal").forEach((m) =>
+  m.addEventListener("click", (e) => { if (e.target === m) m.classList.add("hidden"); }));
+
+// iOS 持久儲存提示 + 申請持久儲存
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().then((granted) => {
+    if (!granted) console.log("Persistent storage not granted; please add to home screen for best persistence.");
+  });
+}
+
+// ============================================================
+// Init
+// ============================================================
+
+renderAll();
+</script>
+</body>
+</html>
