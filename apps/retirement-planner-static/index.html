@@ -199,6 +199,15 @@ input, select, textarea { font-family: inherit; font-size: 16px; /* avoid iOS zo
 }
 .year-item .y-delete:hover, .year-item .y-delete:active { color: var(--danger); }
 
+.year-item.year-add {
+  border: 1px dashed var(--accent);
+  background: rgba(88,166,255,0.06);
+}
+.year-item.year-add:hover, .year-item.year-add:active {
+  background: rgba(88,166,255,0.14);
+}
+.year-item.year-add .y-value { color: var(--accent); opacity: 0.85; }
+
 /* ---- Editor ---- */
 .editor {
   flex: 1;
@@ -614,7 +623,7 @@ input, select, textarea { font-family: inherit; font-size: 16px; /* avoid iOS zo
   <aside class="sidebar">
     <div class="sidebar-header">
       <span>年度</span>
-      <button id="btn-add-year" class="btn btn-mini">＋ 新增</button>
+      <button id="btn-add-year" class="btn btn-primary btn-mini" title="自動帶入前一年的投資/淨資產/支出">＋ 新增下一年度</button>
     </div>
     <ul id="year-list" class="year-list"></ul>
   </aside>
@@ -908,6 +917,16 @@ function renderYearList() {
     });
     ul.appendChild(li);
   }
+  // "Add next year" tile at the end — easy to reach on mobile horizontal scroll
+  const addLi = document.createElement("li");
+  addLi.className = "year-item year-add";
+  addLi.innerHTML = `
+    <div>
+      <div class="y-label" style="color:var(--accent)">＋ 新增下一年</div>
+      <div class="y-value">自動帶入前一年資料</div>
+    </div>`;
+  addLi.addEventListener("click", addNextYear);
+  ul.appendChild(addLi);
 }
 
 function renderEditor() {
@@ -1191,7 +1210,7 @@ document.getElementById("plan-target").addEventListener("change", (e) => {
   saveData();
 });
 
-document.getElementById("btn-add-year").addEventListener("click", () => {
+function addNextYear() {
   const plan = currentPlan();
   if (!plan) { alert("請先建立計畫"); return; }
   const last = plan.years[plan.years.length - 1];
@@ -1207,18 +1226,22 @@ document.getElementById("btn-add-year").addEventListener("click", () => {
       monthly_expenses: last.monthly_expenses.map((m) => ({ ...m, id: nextId() })),
       annual_expenses: last.annual_expenses.map((a) => ({ ...a, id: nextId() })),
     };
+    toast(`已新增 ${y.year} 年（沿用 ${last.year} 年資料）`);
   } else {
     y = {
-      id: nextId(), year: 2026,
+      id: nextId(), year: new Date().getFullYear(),
       annual_income: 280, investment: 2561, net_worth: 2561,
       return_rate: 0.06, pledge_rate: 0.025, finance_rate: 0.015,
       notes: "", monthly_expenses: [], annual_expenses: [],
     };
+    toast(`已新增 ${y.year} 年`);
   }
   plan.years.push(y);
   state.currentYearId = y.id;
   renderAll();
-});
+}
+
+document.getElementById("btn-add-year").addEventListener("click", addNextYear);
 
 // ============================================================
 // 模擬 + 比較
