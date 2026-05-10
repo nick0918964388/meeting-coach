@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>淨資產退休試算器</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">📊</span>
+    <span>淨資產退休試算器</span>
+  </div>
+  <div class="topbar-actions">
+    <label class="field-inline">
+      <span>計畫</span>
+      <select id="plan-select"></select>
+    </label>
+    <button id="btn-new-plan" class="btn">＋ 新計畫</button>
+    <button id="btn-dup-plan" class="btn">📄 複製</button>
+    <button id="btn-rename-plan" class="btn">✏️ 重命名</button>
+    <button id="btn-delete-plan" class="btn btn-danger">🗑️</button>
+    <span class="sep"></span>
+    <label class="field-inline">
+      <span>目標 (萬)</span>
+      <input id="plan-target" type="number" step="100" />
+    </label>
+    <button id="btn-simulate" class="btn btn-primary">📈 模擬到目標</button>
+    <button id="btn-compare" class="btn btn-accent">⚖️ 比較計畫</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span>年度</span>
+      <button id="btn-add-year" class="btn btn-mini">＋</button>
+    </div>
+    <ul id="year-list" class="year-list"></ul>
+  </aside>
+
+  <section id="editor" class="editor">
+    <div id="empty-hint" class="empty-hint">尚未選取年度</div>
+  </section>
+</main>
+
+<!-- ===================== Modal: 模擬 ===================== -->
+<div id="modal-simulate" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="sim-title">📈 模擬到目標</h2>
+      <button class="btn btn-ghost" data-close="#modal-simulate">✕</button>
+    </div>
+    <div id="sim-summary" class="summary-row"></div>
+    <div class="table-wrap">
+      <table id="sim-table" class="data-table">
+        <thead>
+          <tr>
+            <th>年度</th>
+            <th>類型</th>
+            <th>年收入</th>
+            <th>總支出</th>
+            <th>年報酬</th>
+            <th>淨現金流</th>
+            <th>年末投資</th>
+            <th>年末淨資產</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Modal: 比較 ===================== -->
+<div id="modal-compare" class="modal hidden">
+  <div class="modal-card wide">
+    <div class="modal-head">
+      <h2>⚖️ 計畫比較</h2>
+      <button class="btn btn-ghost" data-close="#modal-compare">✕</button>
+    </div>
+    <div class="compare-controls">
+      <label class="field-inline">
+        <span>目標 (萬)</span>
+        <input id="compare-target" type="number" step="100" value="4000" />
+      </label>
+      <div id="compare-checklist" class="compare-checklist"></div>
+      <button id="btn-run-compare" class="btn btn-primary">執行比較</button>
+    </div>
+    <div class="table-wrap">
+      <table id="compare-summary-table" class="data-table">
+        <thead>
+          <tr>
+            <th>計畫</th>
+            <th>目標 (萬)</th>
+            <th>達成年</th>
+            <th>達成所需年數</th>
+            <th>最終淨資產 (萬)</th>
+            <th>達成率</th>
+            <th>進度</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="compare-detail">
+      <h3>各年淨資產走勢</h3>
+      <div class="table-wrap">
+        <table id="compare-detail-table" class="data-table"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
