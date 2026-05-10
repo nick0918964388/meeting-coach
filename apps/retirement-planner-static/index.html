@@ -38,9 +38,9 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
                "Microsoft JhengHei", Helvetica, Arial, sans-serif;
   font-size: 14px;
-  height: 100vh;
-  overflow: hidden;
+  height: 100%;
   -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: contain;
 }
 
 button { font-family: inherit; }
@@ -134,7 +134,11 @@ input, select, textarea { font-family: inherit; font-size: 16px; /* avoid iOS zo
 /* ---- Layout ---- */
 .layout {
   display: flex;
-  height: calc(100vh - 110px);
+  height: calc(100dvh - 110px);
+  min-height: 400px;
+}
+@supports not (height: 100dvh) {
+  .layout { height: calc(100vh - 110px); }
 }
 
 .sidebar {
@@ -525,9 +529,29 @@ input, select, textarea { font-family: inherit; font-size: 16px; /* avoid iOS zo
 
 /* ---- Mobile responsive ---- */
 @media (max-width: 720px) {
-  .layout { flex-direction: column; height: auto; min-height: calc(100vh - 130px); }
-  .sidebar { width: 100%; max-height: 180px; border-right: none; border-bottom: 1px solid var(--border); }
-  .year-list { display: flex; flex-wrap: wrap; padding: 8px; gap: 6px; }
+  /* let the whole page scroll naturally — no fixed-height inner scroll */
+  html, body { height: auto; min-height: 100%; overflow: visible; }
+  .layout {
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+  }
+  .sidebar {
+    width: 100%;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .year-list {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
   .year-item {
     flex: 0 0 auto;
     padding: 8px 12px;
@@ -535,9 +559,15 @@ input, select, textarea { font-family: inherit; font-size: 16px; /* avoid iOS zo
     border: 1px solid var(--border);
     border-radius: 6px;
     background: var(--bg-3);
+    min-width: 110px;
   }
   .year-item.active { background: rgba(88,166,255,0.18); border-color: var(--accent); }
-  .editor { padding: 14px 12px 80px; }
+  .year-item .y-delete { display: inline-block; }
+  .editor {
+    padding: 14px 12px 120px;
+    overflow: visible;
+    flex: none;
+  }
   .topbar-row { gap: 6px; }
   .topbar-row .btn { padding: 5px 8px; font-size: 12px; }
   .field-inline { font-size: 11px; }
