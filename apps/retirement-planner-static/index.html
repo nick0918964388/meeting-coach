@@ -380,6 +380,68 @@ input, select, textarea { font-family: inherit; font-size: 16px; /* avoid iOS zo
 .value.positive { color: var(--success); }
 .value.negative { color: var(--danger); }
 
+/* ---- Formula block ---- */
+.formula-block {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.formula-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 4px 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(120,140,160,0.15);
+  align-items: baseline;
+}
+.formula-row:last-child { border-bottom: none; }
+.formula-row.total { background: rgba(88,166,255,0.04); margin: 0 -8px; padding: 8px; border-radius: 4px; border-bottom: none; }
+.formula-row.total.big strong { font-size: 16px; }
+
+.formula-row .f-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 13px;
+  grid-row: 1;
+}
+.formula-row .f-eq {
+  color: var(--text-muted);
+  font-size: 12px;
+  grid-row: 1;
+}
+.formula-row .f-sub {
+  color: var(--text-dim);
+  font-size: 11px;
+  grid-column: 1 / -1;
+  padding-left: 8px;
+}
+.formula-row .f-result {
+  grid-column: 1 / -1;
+  text-align: right;
+  font-size: 13px;
+  color: var(--text);
+}
+.formula-row.pos .f-result strong { color: var(--success); }
+.formula-row.neg .f-result strong { color: var(--danger); }
+
+.formula-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+
+@media (min-width: 720px) {
+  .formula-row {
+    grid-template-columns: 110px 1.4fr 1.6fr 1fr;
+    gap: 12px;
+  }
+  .formula-row .f-sub { grid-column: auto; padding-left: 0; }
+  .formula-row .f-result { grid-column: auto; }
+}
+
 /* ---- Modals ---- */
 .modal {
   position: fixed;
@@ -709,16 +771,16 @@ function defaultData() {
     years.push({
       id: id(), year: yr,
       annual_income: 280, investment, net_worth: netWorth,
-      return_rate: 0.06, pledge_rate: 0.025, finance_rate: 0.015,
+      return_rate: 0.06,
+      pledge_amount: 0, pledge_rate: 0.025,
       notes: "",
       monthly_expenses: mItems, annual_expenses: aItems,
     });
     const monthlyTotal = mItems.reduce((s, m) => s + m.amount * m.months, 0);
     const annualTotal = aItems.reduce((s, a) => s + a.amount, 0);
     const annualReturn = investment * 0.06;
-    const pledgeCost = investment * 0.025;
-    const financeIncome = investment * 0.015;
-    const netCF = 280 - monthlyTotal - annualTotal - pledgeCost + financeIncome;
+    const pledgeCost = 0 * 0.025;
+    const netCF = 280 - monthlyTotal - annualTotal - pledgeCost;
     investment = +(investment + annualReturn + netCF).toFixed(2);
     netWorth = investment;
   }
@@ -774,9 +836,8 @@ function computeYear(y) {
   const annualTotal = y.annual_expenses.reduce((s, a) => s + (+a.amount || 0), 0);
   const totalExpenses = monthlyTotal + annualTotal;
   const annualReturn = (+y.investment || 0) * (+y.return_rate || 0);
-  const pledgeCost = (+y.investment || 0) * (+y.pledge_rate || 0);
-  const financeIncome = (+y.investment || 0) * (+y.finance_rate || 0);
-  const netCashFlow = (+y.annual_income || 0) - totalExpenses - pledgeCost + financeIncome;
+  const pledgeCost = (+y.pledge_amount || 0) * (+y.pledge_rate || 0);
+  const netCashFlow = (+y.annual_income || 0) - totalExpenses - pledgeCost;
   const endInvestment = (+y.investment || 0) + annualReturn + netCashFlow;
   const endNetWorth = (+y.net_worth || 0) + annualReturn + netCashFlow;
   const r = (n) => +Number(n).toFixed(2);
@@ -786,7 +847,6 @@ function computeYear(y) {
     total_expenses: r(totalExpenses),
     annual_return: r(annualReturn),
     pledge_cost: r(pledgeCost),
-    finance_income: r(financeIncome),
     net_cash_flow: r(netCashFlow),
     end_investment: r(endInvestment),
     end_net_worth: r(endNetWorth),
@@ -818,14 +878,15 @@ function simulatePlan(plan, target, maxYears = 50) {
   const monthlyTotal = tpl.monthly_expenses.reduce((s, m) => s + (+m.amount || 0) * (+m.months || 0), 0);
   const annualTotal = tpl.annual_expenses.reduce((s, a) => s + (+a.amount || 0), 0);
   const income = +tpl.annual_income;
-  const rr = +tpl.return_rate, pr = +tpl.pledge_rate, fr = +tpl.finance_rate;
+  const rr = +tpl.return_rate;
+  const pledgeAmt = +(tpl.pledge_amount || 0);
+  const pr = +(tpl.pledge_rate || 0);
   let yr = +tpl.year, extra = 0;
   while (extra < maxYears && (reached == null || netWorth < target * 1.1)) {
     yr++; extra++;
     const annualReturn = investment * rr;
-    const pledgeCost = investment * pr;
-    const financeIncome = investment * fr;
-    const netCF = income - monthlyTotal - annualTotal - pledgeCost + financeIncome;
+    const pledgeCost = pledgeAmt * pr;
+    const netCF = income - monthlyTotal - annualTotal - pledgeCost;
     investment = +(investment + annualReturn + netCF).toFixed(2);
     netWorth = +(netWorth + annualReturn + netCF).toFixed(2);
     rows.push({
@@ -952,10 +1013,10 @@ function renderEditor() {
           <input type="number" step="1" data-y="net_worth" value="${y.net_worth}"></div>
         <div class="field"><label>報酬率 (%)</label>
           <input type="number" step="0.1" data-y-pct="return_rate" value="${(y.return_rate*100).toFixed(2)}"></div>
+        <div class="field"><label>質押金額 (萬) <span class="hint">未質押填 0</span></label>
+          <input type="number" step="1" data-y="pledge_amount" value="${y.pledge_amount || 0}"></div>
         <div class="field"><label>質押利率 (%)</label>
           <input type="number" step="0.1" data-y-pct="pledge_rate" value="${(y.pledge_rate*100).toFixed(2)}"></div>
-        <div class="field"><label>理財型利率 (%)</label>
-          <input type="number" step="0.1" data-y-pct="finance_rate" value="${(y.finance_rate*100).toFixed(2)}"></div>
       </div>
     </div>
 
@@ -1008,22 +1069,9 @@ function renderEditor() {
       </div>
     </div>
 
-    <div class="section">
-      <h3><span class="icon">📊</span>即時計算</h3>
-      <div class="computed-cards">
-        <div class="card"><div class="label">年報酬</div>
-          <div class="value positive">${fmt(c.annual_return)} 萬</div></div>
-        <div class="card"><div class="label">質押成本</div>
-          <div class="value negative">${fmt(c.pledge_cost)} 萬</div></div>
-        <div class="card"><div class="label">理財型收益</div>
-          <div class="value positive">${fmt(c.finance_income)} 萬</div></div>
-        <div class="card"><div class="label">淨現金流</div>
-          <div class="value ${c.net_cash_flow >= 0 ? 'positive' : 'negative'}">${fmt(c.net_cash_flow)} 萬</div></div>
-        <div class="card"><div class="label">年末投資部位</div>
-          <div class="value">${fmt(c.end_investment)} 萬</div></div>
-        <div class="card"><div class="label">年末淨資產</div>
-          <div class="value">${fmt(c.end_net_worth)} 萬</div></div>
-      </div>
+    <div class="section" id="formula-section">
+      <h3><span class="icon">📊</span>即時計算 <span class="hint">公式 + 代入數字</span></h3>
+      ${renderFormulas(y, c)}
     </div>
 
     <div class="section">
@@ -1033,6 +1081,81 @@ function renderEditor() {
   `;
 
   bindEditor(y);
+}
+
+function renderFormulas(y, c) {
+  const monthlyParts = y.monthly_expenses
+    .filter((m) => m.amount && m.months)
+    .map((m) => `${fmt(m.amount,2)}×${m.months}`).join(" + ") || "0";
+  const annualParts = y.annual_expenses
+    .filter((a) => a.amount)
+    .map((a) => `${fmt(a.amount,2)}`).join(" + ") || "0";
+  const investment = +y.investment || 0;
+  const income = +y.annual_income || 0;
+  const rrPct = ((+y.return_rate || 0) * 100).toFixed(2);
+  const prPct = ((+y.pledge_rate || 0) * 100).toFixed(2);
+  const pledgeAmt = +y.pledge_amount || 0;
+  const cfClass = c.net_cash_flow >= 0 ? "pos" : "neg";
+  const cfSign = c.net_cash_flow >= 0 ? "+" : "−";
+  const cfAbs = Math.abs(c.net_cash_flow);
+
+  return `
+  <div class="formula-block">
+    <div class="formula-row">
+      <span class="f-name">總月支出</span>
+      <span class="f-eq">= Σ(月金額 × 月份數)</span>
+      <span class="f-sub">= ${monthlyParts}</span>
+      <span class="f-result">= <strong>${fmt(c.monthly_total)}</strong> 萬/年</span>
+    </div>
+    <div class="formula-row">
+      <span class="f-name">年度固定支出</span>
+      <span class="f-eq">= Σ(年金額)</span>
+      <span class="f-sub">= ${annualParts}</span>
+      <span class="f-result">= <strong>${fmt(c.annual_total)}</strong> 萬/年</span>
+    </div>
+    <div class="formula-row total">
+      <span class="f-name">總支出</span>
+      <span class="f-eq">= 月支出 + 年固定</span>
+      <span class="f-sub">= ${fmt(c.monthly_total)} + ${fmt(c.annual_total)}</span>
+      <span class="f-result">= <strong>${fmt(c.total_expenses)}</strong> 萬/年</span>
+    </div>
+
+    <div class="formula-divider"></div>
+
+    <div class="formula-row pos">
+      <span class="f-name">年報酬</span>
+      <span class="f-eq">= 投資部位 × 報酬率</span>
+      <span class="f-sub">= ${fmt(investment)} × ${rrPct}%</span>
+      <span class="f-result">= <strong>+${fmt(c.annual_return)}</strong> 萬</span>
+    </div>
+    <div class="formula-row neg">
+      <span class="f-name">質押成本</span>
+      <span class="f-eq">= 質押金額 × 質押利率</span>
+      <span class="f-sub">= ${fmt(pledgeAmt)} × ${prPct}%</span>
+      <span class="f-result">= <strong>−${fmt(c.pledge_cost)}</strong> 萬</span>
+    </div>
+
+    <div class="formula-divider"></div>
+
+    <div class="formula-row total ${cfClass}">
+      <span class="f-name">淨現金流</span>
+      <span class="f-eq">= 年收入 − 總支出 − 質押成本</span>
+      <span class="f-sub">= ${fmt(income)} − ${fmt(c.total_expenses)} − ${fmt(c.pledge_cost)}</span>
+      <span class="f-result">= <strong>${cfSign}${fmt(cfAbs)}</strong> 萬</span>
+    </div>
+    <div class="formula-row total">
+      <span class="f-name">年末投資部位</span>
+      <span class="f-eq">= 投資部位 + 年報酬 + 淨現金流</span>
+      <span class="f-sub">= ${fmt(investment)} + ${fmt(c.annual_return)} ${cfSign} ${fmt(cfAbs)}</span>
+      <span class="f-result">= <strong>${fmt(c.end_investment)}</strong> 萬</span>
+    </div>
+    <div class="formula-row total big">
+      <span class="f-name">年末淨資產</span>
+      <span class="f-eq">= 期初淨資產 + 年報酬 + 淨現金流</span>
+      <span class="f-sub">= ${fmt(+y.net_worth || 0)} + ${fmt(c.annual_return)} ${cfSign} ${fmt(cfAbs)}</span>
+      <span class="f-result">= <strong>${fmt(c.end_net_worth)}</strong> 萬</span>
+    </div>
+  </div>`;
 }
 
 function bindEditor(y) {
@@ -1049,11 +1172,7 @@ function bindEditor(y) {
       y[el.dataset.yPct] = (+el.value || 0) / 100;
       saveData();
       renderYearList();
-      // refresh computed cards inline (not full rerender to keep focus)
-      const c = computeYear(y);
-      const cards = document.querySelectorAll(".computed-cards .card .value");
-      const vals = [c.annual_return, c.pledge_cost, c.finance_income, c.net_cash_flow, c.end_investment, c.end_net_worth];
-      cards.forEach((v, i) => v.textContent = `${fmt(vals[i])} 萬`);
+      updateComputedCards(y);
     }));
   });
 
@@ -1129,16 +1248,10 @@ function bindEditor(y) {
 
 function updateComputedCards(y) {
   const c = computeYear(y);
-  const cards = document.querySelectorAll(".computed-cards .card");
-  if (cards.length < 6) return;
-  cards[0].querySelector(".value").textContent = `${fmt(c.annual_return)} 萬`;
-  cards[1].querySelector(".value").textContent = `${fmt(c.pledge_cost)} 萬`;
-  cards[2].querySelector(".value").textContent = `${fmt(c.finance_income)} 萬`;
-  const cf = cards[3].querySelector(".value");
-  cf.textContent = `${fmt(c.net_cash_flow)} 萬`;
-  cf.className = "value " + (c.net_cash_flow >= 0 ? "positive" : "negative");
-  cards[4].querySelector(".value").textContent = `${fmt(c.end_investment)} 萬`;
-  cards[5].querySelector(".value").textContent = `${fmt(c.end_net_worth)} 萬`;
+  const sec = document.getElementById("formula-section");
+  if (sec) {
+    sec.innerHTML = `<h3><span class="icon">📊</span>即時計算 <span class="hint">公式 + 代入數字</span></h3>${renderFormulas(y, c)}`;
+  }
 }
 
 // ============================================================
