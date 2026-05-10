@@ -380,6 +380,20 @@ input, select, textarea { font-family: inherit; font-size: 16px; /* avoid iOS zo
 .value.positive { color: var(--success); }
 .value.negative { color: var(--danger); }
 
+/* ---- Net worth summary ---- */
+.net-worth-summary {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(88,166,255,0.08);
+  border: 1px solid rgba(88,166,255,0.3);
+  border-radius: 6px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.net-worth-summary strong { color: var(--text); }
+.net-worth-summary .big-num { color: var(--accent); font-size: 16px; }
+
 /* ---- Formula block ---- */
 .formula-block {
   background: var(--bg-3);
@@ -762,7 +776,7 @@ function defaultData() {
     { name: "房租",   amount: 3.0,  months: 12 },
     { name: "其他",   amount: 3.1,  months: 12 },
   ];
-  let investment = 2561, netWorth = 2561;
+  let investment = 2561;
   const years = [];
   for (let yr = 2026; yr <= 2030; yr++) {
     const mItems = monthlyTpl.map((t, i) =>
@@ -770,19 +784,17 @@ function defaultData() {
     const aItems = [{ id: id(), name: "保險", amount: 6.0, sort_order: 0 }];
     years.push({
       id: id(), year: yr,
-      annual_income: 280, investment, net_worth: netWorth,
-      return_rate: 0.06,
-      pledge_amount: 0, pledge_rate: 0.025,
+      annual_income: 280, investment,
+      pledge_amount: 0, other_assets: 0,
+      return_rate: 0.06, pledge_rate: 0.025,
       notes: "",
       monthly_expenses: mItems, annual_expenses: aItems,
     });
     const monthlyTotal = mItems.reduce((s, m) => s + m.amount * m.months, 0);
     const annualTotal = aItems.reduce((s, a) => s + a.amount, 0);
     const annualReturn = investment * 0.06;
-    const pledgeCost = 0 * 0.025;
-    const netCF = 280 - monthlyTotal - annualTotal - pledgeCost;
+    const netCF = 280 - monthlyTotal - annualTotal;
     investment = +(investment + annualReturn + netCF).toFixed(2);
-    netWorth = investment;
   }
   return {
     next_id: nextId,
@@ -832,16 +844,26 @@ const currentYear = () => currentPlan()?.years.find((y) => y.id === state.curren
 // ============================================================
 
 function computeYear(y) {
+  const investment = +y.investment || 0;
+  const pledgeAmt = +y.pledge_amount || 0;
+  const otherAssets = +y.other_assets || 0;
+
+  // 淨資產 = 投資部位 − 質押金額 + 其他淨資產
+  const startNetWorth = investment - pledgeAmt + otherAssets;
+
   const monthlyTotal = y.monthly_expenses.reduce((s, m) => s + (+m.amount || 0) * (+m.months || 0), 0);
   const annualTotal = y.annual_expenses.reduce((s, a) => s + (+a.amount || 0), 0);
   const totalExpenses = monthlyTotal + annualTotal;
-  const annualReturn = (+y.investment || 0) * (+y.return_rate || 0);
-  const pledgeCost = (+y.pledge_amount || 0) * (+y.pledge_rate || 0);
+  const annualReturn = investment * (+y.return_rate || 0);
+  const pledgeCost = pledgeAmt * (+y.pledge_rate || 0);
   const netCashFlow = (+y.annual_income || 0) - totalExpenses - pledgeCost;
-  const endInvestment = (+y.investment || 0) + annualReturn + netCashFlow;
-  const endNetWorth = (+y.net_worth || 0) + annualReturn + netCashFlow;
+  const endInvestment = investment + annualReturn + netCashFlow;
+  // 質押與其他淨資產年度間維持不變（除非使用者下一年改數字）
+  const endNetWorth = endInvestment - pledgeAmt + otherAssets;
+
   const r = (n) => +Number(n).toFixed(2);
   return {
+    start_net_worth: r(startNetWorth),
     monthly_total: r(monthlyTotal),
     annual_total: r(annualTotal),
     total_expenses: r(totalExpenses),
@@ -860,7 +882,7 @@ function simulatePlan(plan, target, maxYears = 50) {
              plan_id: plan.id, plan_name: plan.name };
   }
   let investment = +plan.years[0].investment;
-  let netWorth = +plan.years[0].net_worth;
+  let netWorth = computeYear(plan.years[0]).start_net_worth;
   let reached = null;
   for (const y of plan.years) {
     const c = computeYear(y);
@@ -880,6 +902,7 @@ function simulatePlan(plan, target, maxYears = 50) {
   const income = +tpl.annual_income;
   const rr = +tpl.return_rate;
   const pledgeAmt = +(tpl.pledge_amount || 0);
+  const otherAssets = +(tpl.other_assets || 0);
   const pr = +(tpl.pledge_rate || 0);
   let yr = +tpl.year, extra = 0;
   while (extra < maxYears && (reached == null || netWorth < target * 1.1)) {
@@ -888,7 +911,7 @@ function simulatePlan(plan, target, maxYears = 50) {
     const pledgeCost = pledgeAmt * pr;
     const netCF = income - monthlyTotal - annualTotal - pledgeCost;
     investment = +(investment + annualReturn + netCF).toFixed(2);
-    netWorth = +(netWorth + annualReturn + netCF).toFixed(2);
+    netWorth = +(investment - pledgeAmt + otherAssets).toFixed(2);
     rows.push({
       year: yr, source: "projected",
       annual_income: income, total_expenses: +(monthlyTotal + annualTotal).toFixed(2),
@@ -1009,14 +1032,20 @@ function renderEditor() {
           <input type="number" step="1" data-y="annual_income" value="${y.annual_income}"></div>
         <div class="field"><label>年初投資部位 (萬)</label>
           <input type="number" step="1" data-y="investment" value="${y.investment}"></div>
-        <div class="field"><label>年初淨資產 (萬)</label>
-          <input type="number" step="1" data-y="net_worth" value="${y.net_worth}"></div>
         <div class="field"><label>報酬率 (%)</label>
           <input type="number" step="0.1" data-y-pct="return_rate" value="${(y.return_rate*100).toFixed(2)}"></div>
         <div class="field"><label>質押金額 (萬) <span class="hint">未質押填 0</span></label>
           <input type="number" step="1" data-y="pledge_amount" value="${y.pledge_amount || 0}"></div>
         <div class="field"><label>質押利率 (%)</label>
           <input type="number" step="0.1" data-y-pct="pledge_rate" value="${(y.pledge_rate*100).toFixed(2)}"></div>
+        <div class="field"><label>其他淨資產 (萬) <span class="hint">現金/不動產淨值等，無則填 0</span></label>
+          <input type="number" step="1" data-y="other_assets" value="${y.other_assets || 0}"></div>
+      </div>
+      <div class="net-worth-summary">
+        <span>📐 年初淨資產 = 投資部位 − 質押金額 + 其他淨資產
+          = <strong>${fmt(+y.investment||0)}</strong> − <strong>${fmt(+y.pledge_amount||0)}</strong> + <strong>${fmt(+y.other_assets||0)}</strong>
+          = <strong class="big-num">${fmt(c.start_net_worth)} 萬</strong>
+        </span>
       </div>
     </div>
 
@@ -1095,6 +1124,7 @@ function renderFormulas(y, c) {
   const rrPct = ((+y.return_rate || 0) * 100).toFixed(2);
   const prPct = ((+y.pledge_rate || 0) * 100).toFixed(2);
   const pledgeAmt = +y.pledge_amount || 0;
+  const otherAssets = +y.other_assets || 0;
   const cfClass = c.net_cash_flow >= 0 ? "pos" : "neg";
   const cfSign = c.net_cash_flow >= 0 ? "+" : "−";
   const cfAbs = Math.abs(c.net_cash_flow);
@@ -1145,14 +1175,14 @@ function renderFormulas(y, c) {
     </div>
     <div class="formula-row total">
       <span class="f-name">年末投資部位</span>
-      <span class="f-eq">= 投資部位 + 年報酬 + 淨現金流</span>
+      <span class="f-eq">= 年初投資 + 年報酬 + 淨現金流</span>
       <span class="f-sub">= ${fmt(investment)} + ${fmt(c.annual_return)} ${cfSign} ${fmt(cfAbs)}</span>
       <span class="f-result">= <strong>${fmt(c.end_investment)}</strong> 萬</span>
     </div>
     <div class="formula-row total big">
       <span class="f-name">年末淨資產</span>
-      <span class="f-eq">= 期初淨資產 + 年報酬 + 淨現金流</span>
-      <span class="f-sub">= ${fmt(+y.net_worth || 0)} + ${fmt(c.annual_return)} ${cfSign} ${fmt(cfAbs)}</span>
+      <span class="f-eq">= 年末投資 − 質押金額 + 其他淨資產</span>
+      <span class="f-sub">= ${fmt(c.end_investment)} − ${fmt(pledgeAmt)} + ${fmt(otherAssets)}</span>
       <span class="f-result">= <strong>${fmt(c.end_net_worth)}</strong> 萬</span>
     </div>
   </div>`;
@@ -1333,8 +1363,11 @@ function addNextYear() {
     y = {
       id: nextId(), year: last.year + 1,
       annual_income: last.annual_income,
-      investment: c.end_investment, net_worth: c.end_net_worth,
-      return_rate: last.return_rate, pledge_rate: last.pledge_rate, finance_rate: last.finance_rate,
+      investment: c.end_investment,
+      pledge_amount: +(last.pledge_amount || 0),
+      other_assets: +(last.other_assets || 0),
+      return_rate: last.return_rate,
+      pledge_rate: last.pledge_rate,
       notes: "",
       monthly_expenses: last.monthly_expenses.map((m) => ({ ...m, id: nextId() })),
       annual_expenses: last.annual_expenses.map((a) => ({ ...a, id: nextId() })),
@@ -1343,8 +1376,9 @@ function addNextYear() {
   } else {
     y = {
       id: nextId(), year: new Date().getFullYear(),
-      annual_income: 280, investment: 2561, net_worth: 2561,
-      return_rate: 0.06, pledge_rate: 0.025, finance_rate: 0.015,
+      annual_income: 280, investment: 2561,
+      pledge_amount: 0, other_assets: 0,
+      return_rate: 0.06, pledge_rate: 0.025,
       notes: "", monthly_expenses: [], annual_expenses: [],
     };
     toast(`已新增 ${y.year} 年`);
