@@ -6,6 +6,7 @@ dist/
 .turbo/
 __pycache__/
 *.pyc
+*.db
 .DS_Store
 .env
 apps/web/public/wasm/*.wasm
