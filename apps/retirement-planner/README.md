@@ -2,6 +2,10 @@
 
 暗色主題、單機可跑的退休試算 Web App。
 
+> **手機 / 平板使用**：純前端版部署於 GitHub Pages
+> ➜ https://nick0918964388.github.io/meeting-coach/  
+> 純前端原始碼位於 `/docs/index.html`（單檔 HTML，localStorage 儲存）
+
 ## 功能
 
 - 📊 多計畫管理：可建立、複製、重命名、刪除多組計畫
