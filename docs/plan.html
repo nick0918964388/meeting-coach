@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0d1117" />
+<title>退休 4,800 萬計畫 — Final Checklist</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #1f2630;
+  --border: #2a3340;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --text-dim: #6e7681;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --yellow: #d29922;
+  --orange: #f78166;
+  --red: #f85149;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 20px 100px;
+}
+.nav {
+  position: sticky; top: 0;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex; justify-content: space-between; align-items: center;
+  z-index: 10;
+}
+.nav h2 { margin: 0; font-size: 16px; }
+.nav a {
+  color: var(--accent); text-decoration: none;
+  padding: 6px 12px; background: var(--bg-3);
+  border-radius: 6px; font-size: 13px;
+}
+.nav a:hover { background: var(--border); }
+h1 {
+  font-size: 32px;
+  margin: 24px 0 12px;
+  background: linear-gradient(135deg, #58a6ff, #7ee787);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+h2 {
+  font-size: 22px;
+  margin: 32px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+h3 { font-size: 17px; margin: 20px 0 8px; color: var(--accent-2); }
+h4 { font-size: 15px; margin: 12px 0 6px; color: var(--text-muted); }
+
+.hero {
+  background: linear-gradient(135deg, #1f2630, #161b22);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+}
+.hero .target {
+  font-size: 36px; font-weight: bold;
+  color: var(--green);
+}
+.hero .sub { color: var(--text-muted); margin-top: 8px; }
+
+.section {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 16px 0;
+}
+
+table {
+  width: 100%; border-collapse: collapse;
+  margin: 12px 0;
+}
+th, td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+th { color: var(--text-muted); font-weight: 600; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.highlight { background: rgba(63, 185, 80, 0.1); }
+
+ul, ol { padding-left: 22px; }
+li { margin: 4px 0; }
+.checkbox { color: var(--text-dim); }
+.checkbox::before {
+  content: "☐ ";
+  color: var(--text-dim);
+}
+
+code, pre {
+  background: var(--bg-3);
+  border-radius: 4px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+code { padding: 1px 6px; font-size: 13px; }
+pre {
+  padding: 12px 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.tag.green { background: rgba(63, 185, 80, 0.2); color: var(--green); }
+.tag.yellow { background: rgba(210, 153, 34, 0.2); color: var(--yellow); }
+.tag.orange { background: rgba(247, 129, 102, 0.2); color: var(--orange); }
+.tag.red { background: rgba(248, 81, 73, 0.2); color: var(--red); }
+.tag.accent { background: rgba(88, 166, 255, 0.2); color: var(--accent); }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.card {
+  background: var(--bg-3);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.card .label { color: var(--text-muted); font-size: 12px; }
+.card .value { font-size: 20px; font-weight: 600; margin-top: 4px; }
+
+.year-block {
+  border-left: 3px solid var(--accent);
+  padding-left: 16px;
+  margin: 16px 0;
+}
+.year-block.hot { border-left-color: var(--orange); }
+.year-block.goal { border-left-color: var(--green); }
+
+.note {
+  background: rgba(88, 166, 255, 0.1);
+  border-left: 3px solid var(--accent);
+  padding: 10px 16px;
+  margin: 12px 0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.note.warn {
+  background: rgba(247, 129, 102, 0.1);
+  border-left-color: var(--orange);
+}
+
+@media (max-width: 640px) {
+  .container { padding: 16px 14px 80px; }
+  .grid-2 { grid-template-columns: 1fr; }
+  h1 { font-size: 24px; }
+  h2 { font-size: 18px; }
+  th, td { padding: 6px 8px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <h2>🎯 退休 4,800 萬計畫</h2>
+  <a href="./">→ 試算器</a>
+</nav>
+
+<div class="container">
+
+<h1>退休 4,800 萬計畫 — Final 版</h1>
+<p style="color: var(--text-muted)">
+  最後更新: 2026-05-11 ｜ 起點: 2026.05 ｜ 目標達成: 2030 中 ｜ <strong>距離 4 年</strong>
+</p>
+
+<div class="hero">
+  <div style="color: var(--text-muted); font-size: 14px;">退休門檻 (流動淨資產)</div>
+  <div class="target">4,800 萬 NTD</div>
+  <div class="sub">
+    退休後年缺口 ~240 萬 (4.5-5% 提領率) ｜ 配 200MA + 質押 + 720 萬現金 buffer = 95% 成功率
+  </div>
+</div>
+
+<h2>📊 起點 (2026.05)</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="label">流動淨資產</div>
+    <div class="value" style="color: var(--accent)">2,972 萬</div>
+  </div>
+  <div class="card">
+    <div class="label">投資池 (含槓桿)</div>
+    <div class="value">3,512 萬</div>
+  </div>
+  <div class="card">
+    <div class="label">現金 (活 160 + 定 65)</div>
+    <div class="value">225 萬</div>
+  </div>
+  <div class="card">
+    <div class="label">質押 LTV</div>
+    <div class="value">13.6% (478 萬)</div>
+  </div>
+</div>
+
+<table>
+<thead><tr><th>負債項目</th><th class="num">餘額</th><th class="num">月繳</th><th>到期/處置</th></tr></thead>
+<tbody>
+<tr><td>連線銀行信貸</td><td class="num">119 萬</td><td class="num">5.6 (合計)</td><td>2030 末自然到期</td></tr>
+<tr><td>將來信貸</td><td class="num">167 萬</td><td class="num">↑</td><td>不主動清</td></tr>
+<tr><td>車貸 (2.88% / 7yr)</td><td class="num">330 萬</td><td class="num">4.34</td><td>2033 末自然到期</td></tr>
+<tr><td>質押 (群益 + 元大證金)</td><td class="num">478 萬</td><td class="num">~1 (利息)</td><td>動態管理</td></tr>
+<tr><td>舊房貸</td><td class="num">1,200 萬</td><td class="num">4.7</td><td>2026 Q4 賣房結清</td></tr>
+</tbody>
+</table>
+
+<h3>不動產</h3>
+<ul>
+  <li><strong>舊房</strong>: 林口區力行段 1019 ｜ 市價 1,700 萬 ｜ 持有 8 年 ｜ <span class="tag yellow">2026 Q4 賣</span></li>
+  <li><strong>新房</strong>: 3,600 萬預售屋 ｜ <span class="tag accent">2028 中交屋</span></li>
+</ul>
+
+<h3>投資組合配置 (2026.05)</h3>
+<table>
+<thead><tr><th>標的</th><th class="num">占比</th><th class="num">金額</th><th>說明</th></tr></thead>
+<tbody>
+<tr><td>元大台灣 50 正2 (00631L)</td><td class="num">75%</td><td class="num">2,802 萬</td><td>主力 2x 槓桿台50</td></tr>
+<tr><td>安聯台灣科技</td><td class="num">7%</td><td class="num">259 萬</td><td>主動型台股</td></tr>
+<tr><td>QLD (2x Nasdaq)</td><td class="num">6%</td><td class="num">212 萬</td><td>美科技, 計畫減持</td></tr>
+<tr><td>SSO (2x S&amp;P)</td><td class="num">3%</td><td class="num">114 萬</td><td>計畫全賣</td></tr>
+<tr><td>台指期</td><td class="num">2%</td><td class="num">83 萬</td><td>期貨曝險</td></tr>
+<tr><td>TQQQ (3x Nasdaq)</td><td class="num">1%</td><td class="num">21 萬</td><td>87 股保留</td></tr>
+<tr><td>00662 (Nasdaq ETF)</td><td class="num">新增</td><td class="num">建倉中 (12 張)</td><td>1.8x 自製槓桿 target</td></tr>
+<tr><td>Tesla</td><td class="num">1%</td><td class="num">20 萬</td><td>個股</td></tr>
+</tbody>
+</table>
+
+<h2>🎯 4 大戰術</h2>
+<ol>
+<li><strong>舊房 2026 Q3-Q4 賣出</strong> (持有 8.5 年, 申請土增稅自用一生一次)</li>
+<li><strong>質押 LTV 維持 20%</strong> (累積期加速, 退休前降至 15%)</li>
+<li><strong>不清信貸 287</strong> (5.6% 利率 vs 12% 投資 = 賺 spread, 2030 自然到期)</li>
+<li><strong>退休前 1 年</strong> 降槓桿 + 啟動 200MA filter</li>
+</ol>
+
+<h2>📈 年度流動目標</h2>
+
+<table>
+<thead><tr><th>年末</th><th class="num">流動目標</th><th>關鍵事件</th></tr></thead>
+<tbody>
+<tr><td>2026 末</td><td class="num">3,070 萬</td><td>賣舊房 +339, 質押升 20%</td></tr>
+<tr><td>2027 末</td><td class="num">3,300 萬</td><td>工程款 165, 解套雙重住房</td></tr>
+<tr><td>2028 末</td><td class="num">4,200 萬</td><td>🔥 新房交屋 + cash-out 2,800</td></tr>
+<tr><td>2029 末</td><td class="num">4,720 萬</td><td>信貸最後一年 (2029 末還清)</td></tr>
+<tr class="highlight"><td><strong>2030 中</strong></td><td class="num"><strong>4,800 萬</strong> 🎯</td><td><strong>退休啟動</strong></td></tr>
+<tr><td>2030 末</td><td class="num">5,300 萬</td><td>退休後緩衝</td></tr>
+</tbody>
+</table>
+
+<h2>📅 年度行動清單</h2>
+
+<div class="year-block hot">
+<h3>2026 (今年, 緊急行動)</h3>
+
+<h4>Q2 (現在 - 6 月) 準備期</h4>
+<ul class="checkbox">
+<li>質押率 13.6% → 20% (478 → 765, 多借 287 灌投資池)</li>
+<li>取得舊房 完整契約 + 取得費用單據</li>
+<li>約會計師諮詢 房地合一稅 + 土增稅試算</li>
+<li>2-3 家仲介估價 (target 1,700+, 議價仲介費 2%)</li>
+<li>00662 建倉 (持續到 60+ 張, 1.8x leverage)</li>
+<li>賣 SSO 全部 + QLD 部分 ($64.5k → 換 NTD → 00662)</li>
+</ul>
+
+<h4>Q3 (7-9 月) 上架</h4>
+<ul class="checkbox">
+<li>舊房委託專任約 (60-90 天)</li>
+<li>簡單清潔 / 修繕 (預算 3-5 萬)</li>
+<li>掛牌 1,750-1,780</li>
+</ul>
+
+<h4>Q4 (10-12 月) 成交</h4>
+<ul class="checkbox">
+<li>舊房成交 (target 1,700)</li>
+<li>申請土增稅自用一生一次 (省 30 萬)</li>
+<li>報繳房地合一稅 ~94 萬, 土增稅 ~30 萬</li>
+<li>淨入帳 ~339 萬 全進投資池</li>
+<li>立即終結雙重住房 (月省 4.7 萬!)</li>
+<li><strong>Q4 流動 ≥ 3,070</strong></li>
+</ul>
+</div>
+
+<div class="year-block">
+<h3>2027</h3>
+<ul class="checkbox">
+<li>工程款 165 (6-8 月) 已付準備</li>
+<li>沒舊房負擔, 月支出大降, 開始累積現金 buffer</li>
+<li>研究 Wealth Banking 多家 (2028 新房貸 預先 negotiate)</li>
+<li><strong>Q4 流動 ≥ 3,300</strong></li>
+</ul>
+</div>
+
+<div class="year-block hot">
+<h3>2028 (新房年)</h3>
+
+<h4>Q1 — 準備</h4>
+<ul class="checkbox">
+<li>工程款餘額 + 交屋款 (5% = 180 萬) 預先準備</li>
+<li>跟銀行接觸新房貸 pre-approval</li>
+</ul>
+
+<h4>Q2 — 申請新房貸</h4>
+<ul class="checkbox">
+<li>DTI 計算: (5.6 + 4.34 + 7) / 23.3 = <strong>72.7%</strong> ⚠️</li>
+<li>Plan A: Wealth Banking 彈性過件 (不清信貸)</li>
+<li>Plan B (備案): 撥 287 清信貸, DTI 降至 48.7%</li>
+<li>申請新房貸 2,800 萬 (3% 只繳息)</li>
+</ul>
+
+<h4>Q3 — 交屋</h4>
+<ul class="checkbox">
+<li>新房交屋, 投資池抽 2,800 一次付清</li>
+<li>立即 cash-out 2,800 補回投資池</li>
+<li>質押 LTV 維持 20%</li>
+<li>設籍新房 + 健保地址變更</li>
+</ul>
+
+<h4>Q4 — 入住</h4>
+<ul class="checkbox">
+<li>裝潢 250 完成</li>
+<li><strong>流動 ≥ 4,200</strong></li>
+</ul>
+</div>
+
+<div class="year-block">
+<h3>2029</h3>
+<ul class="checkbox">
+<li>享受 工程款 ended + 沒舊房貸 + 沒房租 的現金流改善</li>
+<li>質押率維持 20% (隨投資池成長同步加碼)</li>
+<li>累積 720 萬現金 buffer (退休前 1 年到位)</li>
+<li>2029 末 信貸自然還清 (月省 5.6 萬)</li>
+<li><strong>Q4 流動 ≥ 4,720</strong></li>
+</ul>
+</div>
+
+<div class="year-block goal">
+<h3>2030 — 退休啟動年 🎉</h3>
+
+<h4>Q1-Q2 準備期</h4>
+<ul class="checkbox">
+<li>流動觸及 4,800 萬 🎯</li>
+<li>申請 Lombard credit line max out (退休前最後機會用薪水申請)</li>
+<li>申請房屋增貸額度 max out (僅申請額度, 不動用)</li>
+<li>投資組合 rebalance:
+  <pre>
+75% 00631L → 50% 00631L + 25% 00662 + 25% SSO/VTI
+砍掉 TQQQ / Tesla / 台指期 → 換 美股 ETF</pre>
+</li>
+<li>質押 LTV 降至 15% (退休安全位)</li>
+</ul>
+
+<h4>Q3 啟動防禦</h4>
+<ul class="checkbox">
+<li><strong>啟動 200MA filter 規則</strong></li>
+<li>提領 720 萬到 MMF / 定存 (3 年 buffer)</li>
+<li>最終配置:
+  <pre>
+14% 現金        720 萬
+43% 00631L     2,150 萬
+21.5% 00662    1,075 萬
+21.5% SSO/VTI  1,075 萬</pre>
+</li>
+</ul>
+
+<h4>Q4 退休 🎉</h4>
+<ul class="checkbox">
+<li>提離職 / 完成交接</li>
+<li>健保切換 (公會 / 配偶眷屬 / 國保)</li>
+<li>車貸繼續, 2033 末自然結清</li>
+<li><strong>退休啟動</strong> (3.5-4 年達成)</li>
+</ul>
+</div>
+
+<h2>💰 退休後動態用錢 SOP</h2>
+
+<p>核心原則: <strong>「200MA 決定資金來源, LTV 決定能借多少」</strong></p>
+
+<h3>場景 A: 200MA 站上 (60-70% 時間)</h3>
+<pre>每月支出 ~20 萬 (年 240) 從哪來:
+
+  60% 質押 borrow (Lombard line) ← 主力
+       └── LTV 上限 20%, 利率 2.5% vs 投資 12% = 賺 9.5% spread
+
+  30% 投資池配息 / 股息            ← 副
+       └── ETF 自然配息進帳
+
+  10% 現金 buffer                  ← 緊急
+
+  ❌ 不做: 賣股票主部位</pre>
+
+<h3>場景 B: 200MA 跌破 (30-40% 時間)</h3>
+<pre>觸發瞬間 ⚡ 立即執行:
+  • 換 30% 持股 (00631L + 00662 各半) + 70% 現金
+  • 停止質押 borrow (LTV 已升)
+
+資金來源 (從上往下用):
+  70-80% 200MA 換倉生成的現金
+  20-30% 720 萬 buffer (第 2 道防線)
+
+  ❌ 不做: 賣防禦部位 / 賣股 (等 200MA 站回)</pre>
+
+<h3>場景 C: 大額支出 &gt; 100 萬</h3>
+<pre>Step 1: 看當下 LTV
+  LTV < 20%  → 純質押 borrow
+  LTV 20-25% → 一半質押 + 一半現金
+  LTV > 25%  → 純用 buffer (不再加槓桿)
+
+Step 2: 看 200MA 訊號
+  站上 → 主力質押 (lev up OK)
+  跌破 → 主力現金 (絕不再借)</pre>
+
+<h2>🚨 LTV 警戒分級</h2>
+
+<table>
+<thead><tr><th>LTV 區間</th><th>狀態</th><th>動作</th></tr></thead>
+<tbody>
+<tr><td>&lt; 15%</td><td><span class="tag green">寬鬆</span></td><td>可加碼</td></tr>
+<tr><td>15-20%</td><td><span class="tag green">正常</span></td><td>維持, 每季 review</td></tr>
+<tr><td>20-25%</td><td><span class="tag yellow">警戒</span></td><td>停止新增質押</td></tr>
+<tr><td>25-30%</td><td><span class="tag orange">高風險</span></td><td><strong>立刻減倉降回 20%</strong></td></tr>
+<tr><td>30-35%</td><td><span class="tag red">危險</span></td><td>緊急減倉, 不再借</td></tr>
+<tr><td>&gt; 35%</td><td><span class="tag red">紅線</span></td><td>補保證金 / 強制砍倉前</td></tr>
+</tbody>
+</table>
+
+<h2>⚠️ 警戒紅線 (任一觸發必須動作)</h2>
+
+<table>
+<thead><tr><th>訊號</th><th>動作</th></tr></thead>
+<tbody>
+<tr><td>流動 &lt; 4,500</td><td>兼職重返職場 1 年</td></tr>
+<tr><td>LTV &gt; 25%</td><td>立刻減倉降回 20%</td></tr>
+<tr><td>LTV &gt; 35%</td><td>緊急減倉, 補保證金</td></tr>
+<tr><td>200MA 跌破</td><td>切換場景 B</td></tr>
+<tr><td>連 2 年熊市 -20%</td><td>暫停提領, 動 buffer</td></tr>
+<tr><td>重大支出 &gt; 50 萬</td><td>走場景 C SOP</td></tr>
+</tbody>
+</table>
+
+<h2>📈 退休後資產成長預估</h2>
+
+<pre>保守估算 (報酬率 10%, 提領率 5%):
+  投資 12% 報酬 - 5% 提領 - 0.5% 質押息 = 6.5% 淨成長
+
+10 年後 (2040): 流動 ≈ 9,000 萬
+20 年後 (2050): 流動 ≈ 17,000+ 萬
+
+→ 越退越富 = 真正的 FU money 狀態 🚀</pre>
+
+<h2>📋 進度追蹤</h2>
+
+<table>
+<thead><tr><th>時點</th><th class="num">流動目標</th><th class="num">實際</th><th>備註</th></tr></thead>
+<tbody>
+<tr><td>2026 Q3</td><td>—</td><td></td><td>上架賣房</td></tr>
+<tr><td>2026 Q4</td><td class="num">3,070</td><td></td><td>賣房入帳後</td></tr>
+<tr><td>2027 Q4</td><td class="num">3,300</td><td></td><td></td></tr>
+<tr><td>2028 Q2</td><td class="num">4,000</td><td></td><td>新房交屋前</td></tr>
+<tr><td>2028 Q4</td><td class="num">4,200</td><td></td><td>cash-out 後</td></tr>
+<tr><td>2029 Q4</td><td class="num">4,720</td><td></td><td>信貸還清前</td></tr>
+<tr class="highlight"><td><strong>2030 Q2</strong></td><td class="num"><strong>4,800 🎯</strong></td><td></td><td><strong>退休門檻</strong></td></tr>
+</tbody>
+</table>
+
+<h2>🆘 緊急應變 SOP</h2>
+
+<h3>場景 1: 退休前突發失業</h3>
+<ul>
+<li>動用 Lombard credit (~700-800 萬額度)</li>
+<li>繼續履行計畫, 不要賣股</li>
+<li>補上 6-12 個月再退休</li>
+</ul>
+
+<h3>場景 2: 退休後 1-2 年遇大熊市</h3>
+<ul>
+<li>200MA 已自動切換場景 B</li>
+<li>用換倉現金 + 720 萬 buffer</li>
+<li>配偶兼職 / 副業補貼</li>
+</ul>
+
+<h3>場景 3: 退休後 5 年內 -50% 級熊市</h3>
+<ul>
+<li>Cash buffer 撐 3 年</li>
+<li>不夠 → 賣新房, 搬小一點 (新房 equity ~1,000+ 萬)</li>
+<li>最壞 → 兼職重返</li>
+</ul>
+
+<h2>🎯 一句話 Summary</h2>
+
+<div class="note">
+2026 Q3-Q4 賣舊房 → 339 萬進投資池<br>
+質押 20% 加速複利 + 信貸不清 留複利<br>
+2028 中新房交屋 + cash-out 2,800<br>
+2029 末流動 4,800 達標<br>
+2030 中啟動退休 (3.5-4 年後)<br>
+<br>
+退休後動態用錢, 配 200MA filter<br>
+資產 10 年翻倍 → 越退越富 🚀
+</div>
+
+<h2>📌 本週要做 3 件事</h2>
+<ol>
+<li><strong>約會計師</strong> — 房地合一稅 + 土增稅自用一生一次 試算</li>
+<li><strong>約仲介估價</strong> — 2-3 家比較, 議價仲介費 2%</li>
+<li><strong>質押升 20%</strong> — 478 → 765, 多借 287 灌投資池</li>
+</ol>
+
+<hr style="border: none; border-top: 1px solid var(--border); margin: 40px 0;">
+
+<p style="text-align: center; color: var(--text-dim); font-size: 13px;">
+最後更新: 2026-05-11 ｜ 下次 review: 2026 Q3 (上架賣房) ｜ 最終目標: 2030 中流動 4,800 萬<br>
+<a href="./" style="color: var(--accent); text-decoration: none;">→ 開啟試算器</a>
+</p>
+
+</div>
+</body>
+</html>
