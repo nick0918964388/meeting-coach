@@ -216,9 +216,16 @@ pre {
     <div class="value">225 萬</div>
   </div>
   <div class="card">
-    <div class="label">質押 LTV</div>
-    <div class="value">13.6% (478 萬)</div>
+    <div class="label">質押 LTV (對 00631L + 00662)</div>
+    <div class="value">16.6% (478 萬)</div>
   </div>
+</div>
+
+<div class="note">
+<strong>💡 質押 LTV 計算說明</strong>: LTV 分母 只算 <strong>可質押 collateral 部位</strong> (00631L + 00662), 不是整體投資池。<br>
+目前 base = 2,802 (00631L) + 80 (00662 已建倉 12 張) = <strong>2,882 萬</strong><br>
+20% LTV 上限 = 576 萬 → 還可加 ~98 萬 質押<br>
+隨 00662 建倉完成, base 擴大到 ~3,272 萬, 20% cap 上看 654 萬
 </div>
 
 <table>
@@ -256,7 +263,7 @@ pre {
 <h2>🎯 4 大戰術</h2>
 <ol>
 <li><strong>舊房 2026 Q3-Q4 賣出</strong> (持有 8.5 年, 申請土增稅自用一生一次)</li>
-<li><strong>質押 LTV 維持 20%</strong> (累積期加速, 退休前降至 15%)</li>
+<li><strong>質押 LTV 維持 20%</strong> (對 00631L + 00662 base, 累積期加速, 退休前降至 15%)</li>
 <li><strong>不清信貸 287</strong> (5.6% 利率 vs 12% 投資 = 賺 spread, 2030 自然到期)</li>
 <li><strong>退休前 1 年</strong> 降槓桿 + 啟動 200MA filter</li>
 </ol>
@@ -282,7 +289,8 @@ pre {
 
 <h4>Q2 (現在 - 6 月) 準備期</h4>
 <ul class="checkbox">
-<li>質押率 13.6% → 20% (478 → 765, 多借 287 灌投資池)</li>
+<li>質押率 16.6% → 20% (478 → 576, 多借 ~98 萬 灌投資池) <br>
+  <span class="tag yellow">注意</span> LTV 分母只算 00631L + 00662 = 2,882 萬, 不是總投資池</li>
 <li>取得舊房 完整契約 + 取得費用單據</li>
 <li>約會計師諮詢 房地合一稅 + 土增稅試算</li>
 <li>2-3 家仲介估價 (target 1,700+, 議價仲介費 2%)</li>
@@ -438,6 +446,8 @@ Step 2: 看 200MA 訊號
   跌破 → 主力現金 (絕不再借)</pre>
 
 <h2>🚨 LTV 警戒分級</h2>
+
+<p style="color: var(--text-muted); font-size: 13px;">LTV = 質押金額 ÷ (00631L + 00662 市值合計)</p>
 
 <table>
 <thead><tr><th>LTV 區間</th><th>狀態</th><th>動作</th></tr></thead>
