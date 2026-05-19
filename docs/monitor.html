@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0d1117" />
+<title>Portfolio Monitor — 退休進度追蹤</title>
+<style>
+:root {
+  --bg: #0d1117; --bg-2: #161b22; --bg-3: #1f2630; --border: #2a3340;
+  --text: #e6edf3; --text-muted: #8b949e; --text-dim: #6e7681;
+  --accent: #58a6ff; --green: #3fb950; --yellow: #d29922;
+  --orange: #f78166; --red: #f85149;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", Helvetica, Arial, sans-serif;
+  font-size: 14px; line-height: 1.5;
+}
+.container { max-width: 900px; margin: 0 auto; padding: 20px 16px 100px; }
+.nav {
+  position: sticky; top: 0; background: var(--bg-2); border-bottom: 1px solid var(--border);
+  padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10;
+}
+.nav h2 { margin: 0; font-size: 16px; }
+.nav .links a {
+  color: var(--accent); text-decoration: none; padding: 6px 10px;
+  background: var(--bg-3); border-radius: 6px; font-size: 13px; margin-left: 6px;
+}
+h1 { font-size: 28px; margin: 16px 0 8px;
+  background: linear-gradient(135deg, #58a6ff, #7ee787);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+h2 { font-size: 20px; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 16px; margin: 16px 0 8px; color: var(--accent); }
+
+.section {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; margin: 16px 0;
+}
+
+.input-row {
+  display: grid; grid-template-columns: 100px 1fr 1fr 120px;
+  gap: 8px; align-items: center; margin: 6px 0;
+}
+.input-row label { color: var(--text-muted); font-size: 13px; }
+.input-row input {
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; color: var(--text); font-size: 14px; width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.input-row input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.input-row .value {
+  text-align: right; padding: 6px 10px; background: var(--bg-3);
+  border-radius: 6px; font-variant-numeric: tabular-nums; color: var(--accent);
+}
+@media (max-width: 640px) {
+  .input-row { grid-template-columns: 80px 1fr 1fr 100px; gap: 4px; font-size: 12px; }
+  .input-row input { font-size: 13px; padding: 5px 6px; }
+}
+
+.card-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px; margin: 12px 0;
+}
+.card {
+  background: var(--bg-3); border-radius: 8px; padding: 10px 14px;
+}
+.card .label { color: var(--text-muted); font-size: 12px; }
+.card .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+.card.green .value { color: var(--green); }
+.card.warn .value { color: var(--yellow); }
+.card.danger .value { color: var(--red); }
+
+.progress {
+  height: 28px; background: var(--bg-3); border-radius: 6px; overflow: hidden;
+  position: relative; margin: 8px 0;
+}
+.progress .fill {
+  height: 100%; background: linear-gradient(90deg, #58a6ff, #3fb950);
+  transition: width 0.3s ease;
+}
+.progress .label {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.toggle {
+  display: inline-flex; gap: 8px; align-items: center;
+  background: var(--bg-3); padding: 4px 10px; border-radius: 6px;
+  cursor: pointer; user-select: none; transition: all 0.2s;
+}
+.toggle.on { background: rgba(63, 185, 80, 0.2); color: var(--green); }
+.toggle.off { background: rgba(248, 81, 73, 0.2); color: var(--red); }
+
+button.btn {
+  background: var(--accent); color: white; border: none; padding: 8px 16px;
+  border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;
+  margin: 4px;
+}
+button.btn:hover { opacity: 0.85; }
+button.btn.secondary { background: var(--bg-3); color: var(--text); border: 1px solid var(--border); }
+button.btn.danger { background: var(--red); }
+
+table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-muted); font-weight: 600; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.deviation-pos { color: var(--orange); }
+.deviation-neg { color: var(--accent); }
+
+.tag {
+  display: inline-block; padding: 1px 6px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+}
+.tag.green { background: rgba(63, 185, 80, 0.2); color: var(--green); }
+.tag.warn { background: rgba(210, 153, 34, 0.2); color: var(--yellow); }
+.tag.danger { background: rgba(248, 81, 73, 0.2); color: var(--red); }
+
+.action-list {
+  background: var(--bg-3); border-radius: 6px; padding: 10px 14px; margin: 8px 0;
+}
+.action-list li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <h2>📊 Portfolio Monitor</h2>
+  <div class="links">
+    <a href="./plan.html">📋 計畫</a>
+    <a href="./">🧮 試算器</a>
+  </div>
+</nav>
+
+<div class="container">
+
+<h1>Portfolio Monitor</h1>
+<p style="color: var(--text-muted)">輸入持股 → 自動算 達成率 / LTV / Vol / 配置偏差</p>
+
+<!-- ============ INPUT SECTION ============ -->
+<div class="section">
+<h2>📥 持股輸入</h2>
+<p style="color: var(--text-muted); font-size: 13px;">每次更新後資料自動存於瀏覽器 (localStorage)</p>
+
+<h3>核心持股</h3>
+<div class="input-row">
+  <label>00631L</label>
+  <input type="number" id="i-631l-shares" placeholder="張數" step="1">
+  <input type="number" id="i-631l-price" placeholder="價格 (元)" step="0.01">
+  <div class="value" id="v-631l">$0</div>
+</div>
+<div class="input-row">
+  <label>00662</label>
+  <input type="number" id="i-662-shares" placeholder="張數" step="1">
+  <input type="number" id="i-662-price" placeholder="價格 (元)" step="0.01">
+  <div class="value" id="v-662">$0</div>
+</div>
+<div class="input-row">
+  <label>安聯科技</label>
+  <input type="number" id="i-allianz-value" placeholder="總值 (萬)" step="1">
+  <span style="color: var(--text-dim); font-size: 12px;">直接輸入金額</span>
+  <div class="value" id="v-allianz">$0</div>
+</div>
+
+<h3>US 持股 (USD)</h3>
+<div class="input-row">
+  <label>QLD</label>
+  <input type="number" id="i-qld-shares" placeholder="股數" step="1">
+  <input type="number" id="i-qld-price" placeholder="價格 USD" step="0.01">
+  <div class="value" id="v-qld">$0</div>
+</div>
+<div class="input-row">
+  <label>TQQQ</label>
+  <input type="number" id="i-tqqq-shares" placeholder="股數" step="1">
+  <input type="number" id="i-tqqq-price" placeholder="價格 USD" step="0.01">
+  <div class="value" id="v-tqqq">$0</div>
+</div>
+<div class="input-row">
+  <label>Tesla</label>
+  <input type="number" id="i-tsla-shares" placeholder="股數" step="1">
+  <input type="number" id="i-tsla-price" placeholder="價格 USD" step="0.01">
+  <div class="value" id="v-tsla">$0</div>
+</div>
+<div class="input-row">
+  <label>匯率</label>
+  <input type="number" id="i-usd-rate" placeholder="USD/NTD" step="0.01" value="31.4">
+  <span style="color: var(--text-dim); font-size: 12px;">USD → NTD 匯率</span>
+  <div class="value" style="color: var(--text-muted);">參考</div>
+</div>
+
+<h3>期貨</h3>
+<div class="input-row">
+  <label>小台</label>
+  <input type="number" id="i-mxf-lots" placeholder="口數" step="1">
+  <input type="number" id="i-mxf-margin" placeholder="保證金總值 (萬)" step="1">
+  <div class="value" id="v-mxf">$0</div>
+</div>
+
+<h3>現金</h3>
+<div class="input-row">
+  <label>活存</label>
+  <input type="number" id="i-cash-checking" placeholder="金額 (萬)" step="1">
+  <span></span>
+  <div class="value" id="v-cash-checking">$0</div>
+</div>
+<div class="input-row">
+  <label>定存</label>
+  <input type="number" id="i-cash-fixed" placeholder="金額 (萬)" step="1">
+  <span></span>
+  <div class="value" id="v-cash-fixed">$0</div>
+</div>
+
+<h3>負債 (流動)</h3>
+<div class="input-row">
+  <label>信貸</label>
+  <input type="number" id="i-debt-credit" placeholder="餘額 (萬)" step="1">
+  <span style="color: var(--text-dim); font-size: 12px;">連線+將來</span>
+  <div class="value" id="v-debt-credit">$0</div>
+</div>
+<div class="input-row">
+  <label>質押</label>
+  <input type="number" id="i-debt-pledge" placeholder="餘額 (萬)" step="1">
+  <span style="color: var(--text-dim); font-size: 12px;">群益+元大證金</span>
+  <div class="value" id="v-debt-pledge">$0</div>
+</div>
+
+<h3>200MA 訊號</h3>
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+  <span class="toggle" id="t-631l-ma" data-state="on">📈 00631L 站上 200MA</span>
+  <span class="toggle" id="t-ndx-ma" data-state="on">📈 NDX 站上 200MA</span>
+</div>
+<p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">點擊切換 站上 / 跌破</p>
+</div>
+
+<!-- ============ CALCULATIONS ============ -->
+<div class="section">
+<h2>💡 即時計算</h2>
+
+<div class="card-grid">
+  <div class="card" id="c-portfolio">
+    <div class="label">投資池</div>
+    <div class="value" id="d-portfolio">$0</div>
+  </div>
+  <div class="card green" id="c-liquid">
+    <div class="label">流動淨資產</div>
+    <div class="value" id="d-liquid">$0</div>
+  </div>
+  <div class="card" id="c-ltv">
+    <div class="label">LTV (00631L+00662)</div>
+    <div class="value" id="d-ltv">0%</div>
+  </div>
+  <div class="card" id="c-vol">
+    <div class="label">Vol (vs 0050)</div>
+    <div class="value" id="d-vol">0x</div>
+  </div>
+</div>
+
+<h3>🎯 退休門檻 達成率 (target: 4,800 萬流動)</h3>
+<div class="progress">
+  <div class="fill" id="p-fill" style="width: 0%;"></div>
+  <div class="label" id="p-label">0%</div>
+</div>
+<p style="color: var(--text-muted); font-size: 13px;" id="p-text"></p>
+
+<h3>📊 配置 vs Target (1.5x 0050 vol)</h3>
+<table>
+<thead>
+<tr><th>標的</th><th class="num">目前</th><th class="num">Target</th><th class="num">偏差</th><th>建議</th></tr>
+</thead>
+<tbody id="alloc-table">
+</tbody>
+</table>
+
+<h3>📌 今日 Action</h3>
+<div class="action-list">
+<ul id="actions">
+<li>等待數據輸入...</li>
+</ul>
+</div>
+</div>
+
+<!-- ============ BUTTONS ============ -->
+<div class="section">
+<button class="btn" id="btn-save">💾 儲存</button>
+<button class="btn secondary" id="btn-load-defaults">📋 載入 plan baseline (5/14)</button>
+<button class="btn danger" id="btn-reset">🗑️ 清空</button>
+<p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">
+  資料存在本機 localStorage. 換瀏覽器 / 清 cache 會消失.
+</p>
+</div>
+
+<hr style="border: none; border-top: 1px solid var(--border); margin: 30px 0;">
+<p style="text-align: center; color: var(--text-dim); font-size: 12px;">
+退休 4,800 萬計畫 ｜ <a href="./plan.html" style="color: var(--accent);">📋 看完整計畫</a> ｜ <a href="./" style="color: var(--accent);">🧮 試算器</a>
+</p>
+
+</div>
+
+<script>
+const RETIREMENT_TARGET = 4800; // 萬
+const VOL_0050 = 22; // 0050 年化波動 %
+
+// Vol assumptions per 標的
+const VOL_MAP = {
+  '631l': 44, '662': 22, 'allianz': 25, 'qld': 44,
+  'tqqq': 66, 'tsla': 50, 'mxf': 35, 'cash': 0
+};
+
+// Target 配置 % (vs 1.5x 0050 vol)
+const TARGETS = {
+  '631l': 65, '662': 10, 'allianz': 7, 'cash': 18, 'others': 0
+};
+
+// Defaults (基於 5/14 latest state)
+const DEFAULTS = {
+  '631l-shares': 861, '631l-price': 30,
+  '662-shares': 12, '662-price': 67,
+  'allianz-value': 259,
+  'qld-shares': 736, 'qld-price': 91.72,
+  'tqqq-shares': 87, 'tqqq-price': 76.28,
+  'tsla-shares': 15, 'tsla-price': 428.35,
+  'usd-rate': 31.4,
+  'mxf-lots': 2, 'mxf-margin': 83,
+  'cash-checking': 160, 'cash-fixed': 65,
+  'debt-credit': 287, 'debt-pledge': 478,
+  't-631l-ma': 'on', 't-ndx-ma': 'on'
+};
+
+function $(id) { return document.getElementById(id); }
+function val(id) { return parseFloat($(id).value) || 0; }
+function fmt(n) { return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n)); }
+
+function calcAll() {
+  // Position values (in 萬 NTD)
+  const usdRate = val('i-usd-rate') || 31.4;
+
+  // 00631L: 張 × 1000 股 × 價格 / 10000 = 萬
+  const v631l = val('i-631l-shares') * val('i-631l-price') * 1000 / 10000;
+  const v662 = val('i-662-shares') * val('i-662-price') * 1000 / 10000;
+  const vAllianz = val('i-allianz-value');
+
+  // US (USD → NTD → 萬)
+  const vQld = val('i-qld-shares') * val('i-qld-price') * usdRate / 10000;
+  const vTqqq = val('i-tqqq-shares') * val('i-tqqq-price') * usdRate / 10000;
+  const vTsla = val('i-tsla-shares') * val('i-tsla-price') * usdRate / 10000;
+
+  const vMxf = val('i-mxf-margin');
+  const vCashChecking = val('i-cash-checking');
+  const vCashFixed = val('i-cash-fixed');
+  const vCash = vCashChecking + vCashFixed;
+
+  const debtCredit = val('i-debt-credit');
+  const debtPledge = val('i-debt-pledge');
+
+  // Display individual values
+  $('v-631l').textContent = `$${fmt(v631l)} 萬`;
+  $('v-662').textContent = `$${fmt(v662)} 萬`;
+  $('v-allianz').textContent = `$${fmt(vAllianz)} 萬`;
+  $('v-qld').textContent = `$${fmt(vQld)} 萬`;
+  $('v-tqqq').textContent = `$${fmt(vTqqq)} 萬`;
+  $('v-tsla').textContent = `$${fmt(vTsla)} 萬`;
+  $('v-mxf').textContent = `$${fmt(vMxf)} 萬`;
+  $('v-cash-checking').textContent = `$${fmt(vCashChecking)} 萬`;
+  $('v-cash-fixed').textContent = `$${fmt(vCashFixed)} 萬`;
+  $('v-debt-credit').textContent = `$${fmt(debtCredit)} 萬`;
+  $('v-debt-pledge').textContent = `$${fmt(debtPledge)} 萬`;
+
+  // Totals
+  const investmentPool = v631l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf;
+  const liquid = investmentPool + vCash - debtCredit - debtPledge;
+  const total = investmentPool + vCash;
+
+  // LTV (對 00631L + 00662 base)
+  const ltvBase = v631l + v662;
+  const ltv = ltvBase > 0 ? (debtPledge / ltvBase * 100) : 0;
+
+  // Vol estimate (weighted average)
+  let weightedVol = 0;
+  if (total > 0) {
+    weightedVol = (
+      v631l * VOL_MAP['631l'] +
+      v662 * VOL_MAP['662'] +
+      vAllianz * VOL_MAP['allianz'] +
+      vQld * VOL_MAP['qld'] +
+      vTqqq * VOL_MAP['tqqq'] +
+      vTsla * VOL_MAP['tsla'] +
+      vMxf * VOL_MAP['mxf']
+    ) / total;
+  }
+  const volRatio = weightedVol / VOL_0050;
+
+  // Update cards
+  $('d-portfolio').textContent = `$${fmt(investmentPool)} 萬`;
+  $('d-liquid').textContent = `$${fmt(liquid)} 萬`;
+  $('d-ltv').textContent = `${ltv.toFixed(1)}%`;
+  $('d-vol').textContent = `${volRatio.toFixed(2)}x`;
+
+  // LTV card color
+  $('c-ltv').classList.remove('green', 'warn', 'danger');
+  if (ltv >= 25) $('c-ltv').classList.add('danger');
+  else if (ltv >= 20) $('c-ltv').classList.add('warn');
+  else $('c-ltv').classList.add('green');
+
+  // Vol card color
+  $('c-vol').classList.remove('green', 'warn', 'danger');
+  if (volRatio > 1.7) $('c-vol').classList.add('danger');
+  else if (volRatio > 1.5) $('c-vol').classList.add('warn');
+  else $('c-vol').classList.add('green');
+
+  // Progress
+  const progressPct = Math.min(100, (liquid / RETIREMENT_TARGET) * 100);
+  $('p-fill').style.width = `${progressPct}%`;
+  $('p-label').textContent = `${progressPct.toFixed(1)}% (${fmt(liquid)} / ${RETIREMENT_TARGET} 萬)`;
+  const remaining = RETIREMENT_TARGET - liquid;
+  if (remaining > 0) {
+    // Estimate years remaining (assume 17%/yr after current state)
+    const yearsLeft = Math.log(RETIREMENT_TARGET / liquid) / Math.log(1.17);
+    $('p-text').textContent = `距離 4,800 萬 還差 ${fmt(remaining)} 萬, 估 ${yearsLeft.toFixed(1)} 年達標 (17%/年)`;
+  } else {
+    $('p-text').textContent = `🎉 已達 退休門檻!`;
+  }
+
+  // Allocation table
+  const allocations = [
+    { name: '00631L', curr: v631l, target: TARGETS['631l'] },
+    { name: '00662', curr: v662, target: TARGETS['662'] },
+    { name: '安聯', curr: vAllianz, target: TARGETS['allianz'] },
+    { name: '現金', curr: vCash, target: TARGETS['cash'] },
+    { name: 'QLD', curr: vQld, target: 0 },
+    { name: 'TQQQ', curr: vTqqq, target: 0 },
+    { name: 'Tesla', curr: vTsla, target: 0 },
+    { name: '小台', curr: vMxf, target: 0 }
+  ];
+
+  let allocHTML = '';
+  for (const a of allocations) {
+    if (a.curr < 0.1) continue;
+    const currPct = total > 0 ? (a.curr / total * 100) : 0;
+    const deviation = currPct - a.target;
+    const devClass = deviation > 0 ? 'deviation-pos' : 'deviation-neg';
+    const action = generateAction(a.name, deviation, a.curr, currPct, a.target);
+    allocHTML += `<tr>
+      <td>${a.name}</td>
+      <td class="num">${currPct.toFixed(1)}%</td>
+      <td class="num">${a.target}%</td>
+      <td class="num ${devClass}">${deviation > 0 ? '+' : ''}${deviation.toFixed(1)}%</td>
+      <td>${action}</td>
+    </tr>`;
+  }
+  $('alloc-table').innerHTML = allocHTML;
+
+  // Actions
+  const actions = generateActions(v631l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash, ltv, volRatio, liquid);
+  $('actions').innerHTML = actions.map(a => `<li>${a}</li>`).join('');
+}
+
+function generateAction(name, deviation, value, currPct, target) {
+  if (target === 0 && value > 0.1) {
+    return `<span class="tag warn">建議賣出</span>`;
+  }
+  if (Math.abs(deviation) < 2) return `<span class="tag green">在 target 內</span>`;
+  if (deviation > 5) return `<span class="tag warn">過重, 考慮減持</span>`;
+  if (deviation > 2) return `<span class="tag">略多, 觀察</span>`;
+  if (deviation < -5) return `<span class="tag" style="color: var(--accent)">不足, 加碼</span>`;
+  return `<span class="tag" style="color: var(--text-muted)">略少, 觀察</span>`;
+}
+
+function generateActions(v631l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash, ltv, volRatio, liquid) {
+  const actions = [];
+  const ma631l = $('t-631l-ma').dataset.state === 'on';
+  const maNdx = $('t-ndx-ma').dataset.state === 'on';
+
+  // Critical: 200MA breach
+  if (!ma631l) {
+    actions.push(`🚨 <strong>00631L 跌破 200MA → 啟動場景 B</strong>: 換 30% 持股 + 70% 現金, 立即 derisk`);
+  }
+  if (!maNdx) {
+    actions.push(`🚨 <strong>NDX 跌破 200MA</strong> → 砍 QLD/TQQQ/00662 (NDX-相關) 至 30%`);
+  }
+
+  // LTV warnings
+  if (ltv >= 25) {
+    actions.push(`🚨 <strong>LTV ${ltv.toFixed(1)}% 過高 (>25%)</strong>: 立刻減持 00631L 或還質押, 降至 20%`);
+  } else if (ltv >= 20) {
+    actions.push(`⚠️ <strong>LTV ${ltv.toFixed(1)}% 警戒</strong>: 不可再加質押, 等 base 成長`);
+  }
+
+  // Vol warnings
+  if (volRatio > 1.7 && ma631l) {
+    actions.push(`⚠️ Vol ${volRatio.toFixed(2)}x 0050 偏高: 考慮逐步降至 1.5x (sell small holdings + reduce 00631L)`);
+  }
+
+  // Small holdings to clear
+  if (vTqqq > 1) actions.push(`💸 TQQQ ${fmt(vTqqq)} 萬: 高 vol, 建議反彈時清掉`);
+  if (vTsla > 1) actions.push(`💸 Tesla ${fmt(vTsla)} 萬: 個股風險, 建議清掉`);
+  if (vMxf > 1) actions.push(`💸 小台 ${fmt(vMxf)} 萬: 期貨 cost of carry, 建議反彈時清掉 (4 週內)`);
+  if (vQld > 1) actions.push(`💸 QLD ${fmt(vQld)} 萬: 可換成 00662 (no decay), 建議反彈時操作`);
+
+  // 00662 building
+  const target662 = (v631l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf + vCash) * 0.10;
+  if (v662 < target662 - 50 && ma631l) {
+    actions.push(`📈 00662 還可加碼 ~${fmt(target662 - v662)} 萬 (target 10% of total)`);
+  }
+
+  // Retirement progress
+  if (liquid >= RETIREMENT_TARGET) {
+    actions.push(`🎉 <strong>已達退休門檻!</strong> 開始啟動 200MA filter + 配置 rebalance`);
+  } else if (liquid >= RETIREMENT_TARGET * 0.95) {
+    actions.push(`🎯 即將達退休門檻 (${(liquid/RETIREMENT_TARGET*100).toFixed(0)}%) - 準備 退休操作 sequence`);
+  }
+
+  if (actions.length === 0) {
+    actions.push(`✅ 配置正常, 繼續累積期 strategy`);
+    if (ma631l) actions.push(`📈 200MA 站上, 安全狀態`);
+  }
+
+  return actions;
+}
+
+function saveData() {
+  const data = {};
+  document.querySelectorAll('input').forEach(i => {
+    if (i.id) data[i.id.replace('i-', '')] = i.value;
+  });
+  document.querySelectorAll('.toggle').forEach(t => {
+    if (t.id) data[t.id] = t.dataset.state;
+  });
+  localStorage.setItem('portfolio-monitor', JSON.stringify(data));
+  alert('✅ 已儲存');
+}
+
+function loadData() {
+  const data = JSON.parse(localStorage.getItem('portfolio-monitor') || '{}');
+  if (Object.keys(data).length === 0) {
+    loadDefaults();
+    return;
+  }
+  Object.keys(data).forEach(k => {
+    const inputEl = $('i-' + k);
+    const toggleEl = $(k);
+    if (inputEl) inputEl.value = data[k];
+    if (toggleEl && toggleEl.classList.contains('toggle')) {
+      toggleEl.dataset.state = data[k];
+      updateToggle(toggleEl);
+    }
+  });
+  calcAll();
+}
+
+function loadDefaults() {
+  Object.keys(DEFAULTS).forEach(k => {
+    const inputEl = $('i-' + k);
+    const toggleEl = $(k);
+    if (inputEl) inputEl.value = DEFAULTS[k];
+    if (toggleEl && toggleEl.classList.contains('toggle')) {
+      toggleEl.dataset.state = DEFAULTS[k];
+      updateToggle(toggleEl);
+    }
+  });
+  calcAll();
+}
+
+function updateToggle(el) {
+  if (el.dataset.state === 'on') {
+    el.classList.add('on'); el.classList.remove('off');
+    el.textContent = el.textContent.replace('📉', '📈').replace('跌破', '站上');
+  } else {
+    el.classList.add('off'); el.classList.remove('on');
+    el.textContent = el.textContent.replace('📈', '📉').replace('站上', '跌破');
+  }
+}
+
+function setupToggles() {
+  document.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', () => {
+      t.dataset.state = t.dataset.state === 'on' ? 'off' : 'on';
+      updateToggle(t);
+      calcAll();
+    });
+    updateToggle(t);
+  });
+}
+
+function resetAll() {
+  if (!confirm('確定清空所有資料?')) return;
+  localStorage.removeItem('portfolio-monitor');
+  document.querySelectorAll('input').forEach(i => i.value = '');
+  document.querySelectorAll('.toggle').forEach(t => {
+    t.dataset.state = 'on';
+    updateToggle(t);
+  });
+  calcAll();
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  setupToggles();
+
+  // Setup all input listeners
+  document.querySelectorAll('input').forEach(i => {
+    i.addEventListener('input', calcAll);
+  });
+
+  $('btn-save').addEventListener('click', saveData);
+  $('btn-load-defaults').addEventListener('click', loadDefaults);
+  $('btn-reset').addEventListener('click', resetAll);
+
+  // Load saved data or defaults
+  loadData();
+});
+</script>
+
+</body>
+</html>
