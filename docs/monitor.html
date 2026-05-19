@@ -138,6 +138,30 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 <h1>Portfolio Monitor</h1>
 <p style="color: var(--text-muted)">輸入持股 → 自動算 達成率 / LTV / Vol / 配置偏差</p>
 
+<!-- ============ AUTO FETCH ============ -->
+<div class="section" style="background: linear-gradient(135deg, #1f2630, #161b22);">
+<h3 style="margin-top: 0;">⚡ 自動抓價 (v2)</h3>
+<p style="color: var(--text-muted); font-size: 13px;">
+  從 Yahoo Finance 抓 即時價 + 1 年歷史 自動算 200MA. Best effort, 失敗 fallback manual.
+</p>
+<button class="btn" id="btn-refresh" style="background: linear-gradient(135deg, #58a6ff, #3fb950);">
+  🔄 Refresh All Prices
+</button>
+<button class="btn secondary" id="btn-refresh-tw" style="margin-left: 6px;">
+  TW only
+</button>
+<button class="btn secondary" id="btn-refresh-us" style="margin-left: 6px;">
+  US only
+</button>
+<div id="refresh-status" style="margin-top: 10px; font-size: 13px; color: var(--text-muted);">
+  Last refresh: never
+</div>
+<details style="margin-top: 10px;">
+  <summary style="cursor: pointer; color: var(--text-muted); font-size: 12px;">📋 Fetch log (debug)</summary>
+  <pre id="fetch-log" style="font-size: 11px; max-height: 200px; overflow-y: auto; background: var(--bg-3); padding: 8px; border-radius: 4px; margin-top: 6px;"></pre>
+</details>
+</div>
+
 <!-- ============ INPUT SECTION ============ -->
 <div class="section">
 <h2>📥 持股輸入</h2>
@@ -518,7 +542,7 @@ function generateActions(v631l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash,
   return actions;
 }
 
-function saveData() {
+function saveData(silent) {
   const data = {};
   document.querySelectorAll('input').forEach(i => {
     if (i.id) data[i.id.replace('i-', '')] = i.value;
@@ -526,8 +550,9 @@ function saveData() {
   document.querySelectorAll('.toggle').forEach(t => {
     if (t.id) data[t.id] = t.dataset.state;
   });
+  data._savedAt = new Date().toISOString();
   localStorage.setItem('portfolio-monitor', JSON.stringify(data));
-  alert('✅ 已儲存');
+  if (!silent) alert('✅ 已儲存');
 }
 
 function loadData() {
@@ -593,7 +618,159 @@ function resetAll() {
   calcAll();
 }
 
+// ============================================================
+// AUTO FETCH (v2)
+// ============================================================
+
+const CORS_PROXIES = [
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
+
+const SYMBOLS = {
+  '631l':       { yahoo: '00631L.TW', label: '00631L', inputId: 'i-631l-price', region: 'tw' },
+  '662':        { yahoo: '00662.TW',  label: '00662',  inputId: 'i-662-price',  region: 'tw' },
+  'tw50':       { yahoo: '0050.TW',   label: '0050 (for 200MA)', inputId: null, region: 'tw' },
+  'qld':        { yahoo: 'QLD',       label: 'QLD',    inputId: 'i-qld-price',  region: 'us' },
+  'tqqq':       { yahoo: 'TQQQ',      label: 'TQQQ',   inputId: 'i-tqqq-price', region: 'us' },
+  'tsla':       { yahoo: 'TSLA',      label: 'Tesla',  inputId: 'i-tsla-price', region: 'us' },
+  'ndx':        { yahoo: '%5ENDX',    label: 'NDX (for 200MA)', inputId: null, region: 'us' },
+  'usdtwd':     { yahoo: 'TWD%3DX',   label: 'USD/TWD', inputId: 'i-usd-rate', region: 'us' }
+};
+
+function logFetch(msg) {
+  const el = $('fetch-log');
+  if (el) el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  console.log(msg);
+}
+
+async function fetchYahoo(symbol, label) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
+
+  // Try direct first (works for some symbols if CORS allows)
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (res.ok) {
+      const data = await res.json();
+      logFetch(`✅ ${label}: direct fetch OK`);
+      return parseYahoo(data);
+    }
+  } catch (e) {
+    // CORS blocked, continue to proxies
+  }
+
+  // Try each CORS proxy
+  for (let i = 0; i < CORS_PROXIES.length; i++) {
+    try {
+      const proxyUrl = CORS_PROXIES[i](url);
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const data = await res.json();
+        logFetch(`✅ ${label}: via proxy ${i+1} OK`);
+        return parseYahoo(data);
+      }
+      logFetch(`⚠️ ${label}: proxy ${i+1} returned ${res.status}`);
+    } catch (e) {
+      logFetch(`⚠️ ${label}: proxy ${i+1} error: ${e.message}`);
+    }
+  }
+
+  throw new Error(`All fetches failed for ${label}`);
+}
+
+function parseYahoo(data) {
+  const result = data?.chart?.result?.[0];
+  if (!result) throw new Error('Invalid Yahoo response');
+
+  const currentPrice = result.meta.regularMarketPrice;
+  const closes = (result.indicators?.quote?.[0]?.close || []).filter(c => c != null);
+
+  if (closes.length === 0) {
+    return { price: currentPrice, ma200: null, above200ma: null };
+  }
+
+  // 200-day moving average from last 200 closes
+  const last200 = closes.slice(-200);
+  const ma200 = last200.reduce((a, b) => a + b, 0) / last200.length;
+
+  return {
+    price: currentPrice,
+    ma200: ma200,
+    above200ma: currentPrice > ma200,
+    closesCount: closes.length
+  };
+}
+
+async function refreshPrices(filter = 'all') {
+  const btn = $('btn-refresh');
+  const btnTw = $('btn-refresh-tw');
+  const btnUs = $('btn-refresh-us');
+  const statusEl = $('refresh-status');
+  const logEl = $('fetch-log');
+
+  btn.disabled = btnTw.disabled = btnUs.disabled = true;
+  statusEl.textContent = '🔄 Fetching prices...';
+  logEl.textContent = '';
+
+  const targets = Object.entries(SYMBOLS).filter(([k, info]) =>
+    filter === 'all' || info.region === filter
+  );
+
+  let success = 0, fail = 0;
+
+  for (const [key, info] of targets) {
+    try {
+      const result = await fetchYahoo(info.yahoo, info.label);
+
+      // Update input field if mapped
+      if (info.inputId) {
+        const inputEl = $(info.inputId);
+        if (inputEl && result.price) {
+          inputEl.value = result.price.toFixed(2);
+        }
+      }
+
+      // Special handling for 200MA benchmarks
+      if (key === 'tw50' && result.above200ma !== null) {
+        const t = $('t-631l-ma');
+        t.dataset.state = result.above200ma ? 'on' : 'off';
+        updateToggle(t);
+        logFetch(`  ↳ 0050: $${result.price.toFixed(2)}, 200MA $${result.ma200.toFixed(2)}, ${result.above200ma ? '站上' : '跌破'}`);
+      }
+      if (key === 'ndx' && result.above200ma !== null) {
+        const t = $('t-ndx-ma');
+        t.dataset.state = result.above200ma ? 'on' : 'off';
+        updateToggle(t);
+        logFetch(`  ↳ NDX: ${result.price.toFixed(2)}, 200MA ${result.ma200.toFixed(2)}, ${result.above200ma ? '站上' : '跌破'}`);
+      }
+
+      success++;
+    } catch (e) {
+      logFetch(`❌ ${info.label}: ${e.message}`);
+      fail++;
+    }
+
+    // Small delay between requests to avoid rate limit
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  const time = new Date().toLocaleString();
+  statusEl.innerHTML = `Last refresh: <strong>${time}</strong> — ${success} ok, ${fail} failed`;
+
+  btn.disabled = btnTw.disabled = btnUs.disabled = false;
+
+  // Recalculate everything
+  calcAll();
+
+  // Auto-save
+  saveData(true);
+}
+
+// ============================================================
 // Event listeners
+// ============================================================
+
 document.addEventListener('DOMContentLoaded', () => {
   setupToggles();
 
@@ -602,9 +779,12 @@ document.addEventListener('DOMContentLoaded', () => {
     i.addEventListener('input', calcAll);
   });
 
-  $('btn-save').addEventListener('click', saveData);
+  $('btn-save').addEventListener('click', () => saveData(false));
   $('btn-load-defaults').addEventListener('click', loadDefaults);
   $('btn-reset').addEventListener('click', resetAll);
+  $('btn-refresh').addEventListener('click', () => refreshPrices('all'));
+  $('btn-refresh-tw').addEventListener('click', () => refreshPrices('tw'));
+  $('btn-refresh-us').addEventListener('click', () => refreshPrices('us'));
 
   // Load saved data or defaults
   loadData();
