@@ -287,7 +287,19 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 </div>
 <p style="color: var(--text-muted); font-size: 13px;" id="p-text"></p>
 
-<h3>📊 配置 vs Target (1.5x 0050 vol)</h3>
+<h3>📊 配置 vs Target</h3>
+
+<div style="margin: 8px 0;">
+  <label style="color: var(--text-muted); font-size: 13px;">階段 target:</label>
+  <select id="phase-select" style="margin-left: 8px; padding: 4px 10px; background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 13px;">
+    <option value="accumulation">📈 累積期 (2026-2028 中)</option>
+    <option value="transition">🔄 過渡期 (2028 末-2029 中)</option>
+    <option value="pre-retire">⏰ 退休前 (2029 中-2030 中)</option>
+    <option value="retired">🏖️ 退休後 (2030+)</option>
+  </select>
+  <div id="phase-desc" style="color: var(--text-muted); font-size: 12px; margin-top: 4px;"></div>
+</div>
+
 <table>
 <thead>
 <tr><th>標的</th><th class="num">目前</th><th class="num">Target</th><th class="num">偏差</th><th>建議</th></tr>
@@ -331,10 +343,34 @@ const VOL_MAP = {
   'tqqq': 66, 'tsla': 50, 'mxf': 35, 'cash': 0
 };
 
-// Target 配置 % (vs 1.5x 0050 vol)
-const TARGETS = {
-  '631l': 65, '662': 10, 'allianz': 7, 'cash': 18, 'others': 0
+// Target 配置 % - 分階段 (累積期 / 過渡期 / 退休前 / 退休後)
+const TARGET_PHASES = {
+  'accumulation': {  // 2026-2028 中: equity-heavy 累積
+    label: '累積期 (2026-2028 中)',
+    desc: 'Equity-heavy, 最大化複利報酬',
+    '631l': 70, '662': 10, 'allianz': 7, 'cash': 8, 'others': 5
+  },
+  'transition': {  // 2028 末-2029 中: 過渡期
+    label: '過渡期 (2028 末-2029 中)',
+    desc: '開始 build cash buffer',
+    '631l': 65, '662': 10, 'allianz': 7, 'cash': 13, 'others': 5
+  },
+  'pre-retire': {  // 2029 中-2030 中: 退休前 12 個月
+    label: '退休前 (2029 中-2030 中)',
+    desc: 'Cash buffer 衝刺 18%',
+    '631l': 60, '662': 10, 'allianz': 7, 'cash': 18, 'others': 5
+  },
+  'retired': {  // 2030+: 退休後
+    label: '退休後 (2030+)',
+    desc: '降槓桿 + 200MA filter',
+    '631l': 43, '662': 21, 'allianz': 7, 'cash': 18, 'others': 11
+  }
 };
+
+// 預設 階段: 累積期
+let CURRENT_PHASE = localStorage.getItem('monitor-phase') || 'accumulation';
+let TARGETS = TARGET_PHASES[CURRENT_PHASE];
+
 
 // Defaults (基於 5/14 latest state)
 const DEFAULTS = {
@@ -510,9 +546,23 @@ function generateActions(v631l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash,
     actions.push(`⚠️ <strong>LTV ${ltv.toFixed(1)}% 警戒</strong>: 不可再加質押, 等 base 成長`);
   }
 
-  // Vol warnings
-  if (volRatio > 1.7 && ma631l) {
-    actions.push(`⚠️ Vol ${volRatio.toFixed(2)}x 0050 偏高: 考慮逐步降至 1.5x (sell small holdings + reduce 00631L)`);
+  // Vol warnings (phase-aware)
+  const volTarget = CURRENT_PHASE === 'retired' ? 1.2 :
+                    CURRENT_PHASE === 'pre-retire' ? 1.3 :
+                    CURRENT_PHASE === 'transition' ? 1.4 : 1.6;
+  if (volRatio > volTarget + 0.2 && ma631l) {
+    actions.push(`⚠️ Vol ${volRatio.toFixed(2)}x 0050 偏高 (${CURRENT_PHASE} target ${volTarget}x): 考慮 reduce 00631L`);
+  }
+
+  // Cash warnings (phase-aware, 累積期不警告)
+  const total = v631l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf + vCash;
+  const cashPct = total > 0 ? (vCash / total * 100) : 0;
+  if (CURRENT_PHASE === 'pre-retire' && cashPct < 15) {
+    actions.push(`💰 <strong>現金 ${cashPct.toFixed(1)}% 不足</strong> (退休前 target 18%): 加速 build cash buffer`);
+  } else if (CURRENT_PHASE === 'retired' && cashPct < 15) {
+    actions.push(`🚨 <strong>現金 ${cashPct.toFixed(1)}% 過低</strong> (退休後 target 18%): 立即補 cash`);
+  } else if (CURRENT_PHASE === 'accumulation' && cashPct > 15) {
+    actions.push(`📈 累積期 cash ${cashPct.toFixed(1)}% 偏高: 可考慮加碼 equity (cash 拖累報酬 ~2%/yr)`);
   }
 
   // Small holdings to clear
@@ -521,10 +571,10 @@ function generateActions(v631l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash,
   if (vMxf > 1) actions.push(`💸 小台 ${fmt(vMxf)} 萬: 期貨 cost of carry, 建議反彈時清掉 (4 週內)`);
   if (vQld > 1) actions.push(`💸 QLD ${fmt(vQld)} 萬: 可換成 00662 (no decay), 建議反彈時操作`);
 
-  // 00662 building
-  const target662 = (v631l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf + vCash) * 0.10;
-  if (v662 < target662 - 50 && ma631l) {
-    actions.push(`📈 00662 還可加碼 ~${fmt(target662 - v662)} 萬 (target 10% of total)`);
+  // 00662 building (phase-aware)
+  const target662 = total * (TARGETS['662'] / 100);
+  if (v662 < target662 - 50 && ma631l && CURRENT_PHASE === 'accumulation') {
+    actions.push(`📈 00662 還可加碼 ~${fmt(target662 - v662)} 萬 (累積期 target ${TARGETS['662']}% of total)`);
   }
 
   // Retirement progress
@@ -785,6 +835,18 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-refresh').addEventListener('click', () => refreshPrices('all'));
   $('btn-refresh-tw').addEventListener('click', () => refreshPrices('tw'));
   $('btn-refresh-us').addEventListener('click', () => refreshPrices('us'));
+
+  // Phase selector
+  const phaseSelect = $('phase-select');
+  phaseSelect.value = CURRENT_PHASE;
+  $('phase-desc').textContent = TARGET_PHASES[CURRENT_PHASE].desc;
+  phaseSelect.addEventListener('change', (e) => {
+    CURRENT_PHASE = e.target.value;
+    TARGETS = TARGET_PHASES[CURRENT_PHASE];
+    localStorage.setItem('monitor-phase', CURRENT_PHASE);
+    $('phase-desc').textContent = TARGET_PHASES[CURRENT_PHASE].desc;
+    calcAll();
+  });
 
   // Load saved data or defaults
   loadData();
