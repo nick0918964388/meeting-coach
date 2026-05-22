@@ -175,6 +175,12 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   <div class="value" id="v-631l">$0</div>
 </div>
 <div class="input-row">
+  <label>00685L</label>
+  <input type="number" id="i-685l-shares" placeholder="張數" step="0.1">
+  <input type="number" id="i-685l-price" placeholder="價格 (元)" step="0.01">
+  <div class="value" id="v-685l">$0</div>
+</div>
+<div class="input-row">
   <label>00662</label>
   <input type="number" id="i-662-shares" placeholder="張數" step="1">
   <input type="number" id="i-662-price" placeholder="價格 (元)" step="0.01">
@@ -339,7 +345,7 @@ const VOL_0050 = 22; // 0050 年化波動 %
 
 // Vol assumptions per 標的
 const VOL_MAP = {
-  '631l': 44, '662': 22, 'allianz': 25, 'qld': 44,
+  '631l': 44, '685l': 44, '662': 22, 'allianz': 25, 'qld': 44,
   'tqqq': 66, 'tsla': 50, 'mxf': 35, 'cash': 0
 };
 
@@ -372,10 +378,11 @@ let CURRENT_PHASE = localStorage.getItem('monitor-phase') || 'accumulation';
 let TARGETS = TARGET_PHASES[CURRENT_PHASE];
 
 
-// Defaults (基於 5/14 latest state)
+// Defaults (基於 5/19 latest state)
 const DEFAULTS = {
-  '631l-shares': 861, '631l-price': 30,
-  '662-shares': 12, '662-price': 67,
+  '631l-shares': 861, '631l-price': 31.58,
+  '685l-shares': 12.5, '685l-price': 32,
+  '662-shares': 27, '662-price': 119.20,
   'allianz-value': 259,
   'qld-shares': 736, 'qld-price': 91.72,
   'tqqq-shares': 87, 'tqqq-price': 76.28,
@@ -397,6 +404,7 @@ function calcAll() {
 
   // 00631L: 張 × 1000 股 × 價格 / 10000 = 萬
   const v631l = val('i-631l-shares') * val('i-631l-price') * 1000 / 10000;
+  const v685l = val('i-685l-shares') * val('i-685l-price') * 1000 / 10000;
   const v662 = val('i-662-shares') * val('i-662-price') * 1000 / 10000;
   const vAllianz = val('i-allianz-value');
 
@@ -415,6 +423,7 @@ function calcAll() {
 
   // Display individual values
   $('v-631l').textContent = `$${fmt(v631l)} 萬`;
+  $('v-685l').textContent = `$${fmt(v685l)} 萬`;
   $('v-662').textContent = `$${fmt(v662)} 萬`;
   $('v-allianz').textContent = `$${fmt(vAllianz)} 萬`;
   $('v-qld').textContent = `$${fmt(vQld)} 萬`;
@@ -427,12 +436,12 @@ function calcAll() {
   $('v-debt-pledge').textContent = `$${fmt(debtPledge)} 萬`;
 
   // Totals
-  const investmentPool = v631l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf;
+  const investmentPool = v631l + v685l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf;
   const liquid = investmentPool + vCash - debtCredit - debtPledge;
   const total = investmentPool + vCash;
 
-  // LTV (對 00631L + 00662 base)
-  const ltvBase = v631l + v662;
+  // LTV (對 00631L + 00685L + 00662 base, 所有 Taiwan ETF 都可質押)
+  const ltvBase = v631l + v685l + v662;
   const ltv = ltvBase > 0 ? (debtPledge / ltvBase * 100) : 0;
 
   // Vol estimate (weighted average)
@@ -440,6 +449,7 @@ function calcAll() {
   if (total > 0) {
     weightedVol = (
       v631l * VOL_MAP['631l'] +
+      v685l * VOL_MAP['685l'] +
       v662 * VOL_MAP['662'] +
       vAllianz * VOL_MAP['allianz'] +
       vQld * VOL_MAP['qld'] +
@@ -481,9 +491,12 @@ function calcAll() {
     $('p-text').textContent = `🎉 已達 退休門檻!`;
   }
 
-  // Allocation table
+  // Allocation table — 00631L + 00685L 視為「Taiwan 2x」同 bucket
+  const vTwLev = v631l + v685l;
   const allocations = [
-    { name: '00631L', curr: v631l, target: TARGETS['631l'] },
+    { name: 'Taiwan 2x (00631L+00685L)', curr: vTwLev, target: TARGETS['631l'], highlight: true },
+    { name: '　└ 00631L', curr: v631l, target: null, sub: true },
+    { name: '　└ 00685L', curr: v685l, target: null, sub: true },
     { name: '00662', curr: v662, target: TARGETS['662'] },
     { name: '安聯', curr: vAllianz, target: TARGETS['allianz'] },
     { name: '現金', curr: vCash, target: TARGETS['cash'] },
@@ -495,23 +508,38 @@ function calcAll() {
 
   let allocHTML = '';
   for (const a of allocations) {
-    if (a.curr < 0.1) continue;
+    if (a.curr < 0.1 && !a.sub) continue;
     const currPct = total > 0 ? (a.curr / total * 100) : 0;
-    const deviation = currPct - a.target;
-    const devClass = deviation > 0 ? 'deviation-pos' : 'deviation-neg';
-    const action = generateAction(a.name, deviation, a.curr, currPct, a.target);
-    allocHTML += `<tr>
-      <td>${a.name}</td>
-      <td class="num">${currPct.toFixed(1)}%</td>
-      <td class="num">${a.target}%</td>
-      <td class="num ${devClass}">${deviation > 0 ? '+' : ''}${deviation.toFixed(1)}%</td>
-      <td>${action}</td>
-    </tr>`;
+    const isSubRow = a.sub === true;
+    const isHighlight = a.highlight === true;
+
+    if (isSubRow) {
+      // Sub row: 只顯示 name + value + percent, 無 target/deviation/action
+      allocHTML += `<tr style="background: rgba(255,255,255,0.02);">
+        <td style="font-size: 12px; color: var(--text-muted);">${a.name}</td>
+        <td class="num" style="font-size: 12px; color: var(--text-muted);">${currPct.toFixed(1)}%</td>
+        <td class="num" style="color: var(--text-dim);">—</td>
+        <td class="num" style="color: var(--text-dim);">—</td>
+        <td><span style="font-size: 11px; color: var(--text-dim);">$${fmt(a.curr)} 萬</span></td>
+      </tr>`;
+    } else {
+      const deviation = currPct - a.target;
+      const devClass = deviation > 0 ? 'deviation-pos' : 'deviation-neg';
+      const action = generateAction(a.name, deviation, a.curr, currPct, a.target);
+      const rowStyle = isHighlight ? 'style="font-weight: 600;"' : '';
+      allocHTML += `<tr ${rowStyle}>
+        <td>${a.name}</td>
+        <td class="num">${currPct.toFixed(1)}%</td>
+        <td class="num">${a.target}%</td>
+        <td class="num ${devClass}">${deviation > 0 ? '+' : ''}${deviation.toFixed(1)}%</td>
+        <td>${action}</td>
+      </tr>`;
+    }
   }
   $('alloc-table').innerHTML = allocHTML;
 
   // Actions
-  const actions = generateActions(v631l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash, ltv, volRatio, liquid);
+  const actions = generateActions(v631l, v685l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash, ltv, volRatio, liquid);
   $('actions').innerHTML = actions.map(a => `<li>${a}</li>`).join('');
 }
 
@@ -526,7 +554,8 @@ function generateAction(name, deviation, value, currPct, target) {
   return `<span class="tag" style="color: var(--text-muted)">略少, 觀察</span>`;
 }
 
-function generateActions(v631l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash, ltv, volRatio, liquid) {
+function generateActions(v631l, v685l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash, ltv, volRatio, liquid) {
+  const vTwLev = v631l + v685l;
   const actions = [];
   const ma631l = $('t-631l-ma').dataset.state === 'on';
   const maNdx = $('t-ndx-ma').dataset.state === 'on';
@@ -555,7 +584,7 @@ function generateActions(v631l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash,
   }
 
   // Cash warnings (phase-aware, 累積期不警告)
-  const total = v631l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf + vCash;
+  const total = v631l + v685l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf + vCash;
   const cashPct = total > 0 ? (vCash / total * 100) : 0;
   if (CURRENT_PHASE === 'pre-retire' && cashPct < 15) {
     actions.push(`💰 <strong>現金 ${cashPct.toFixed(1)}% 不足</strong> (退休前 target 18%): 加速 build cash buffer`);
@@ -680,6 +709,7 @@ const CORS_PROXIES = [
 
 const SYMBOLS = {
   '631l':       { yahoo: '00631L.TW', label: '00631L', inputId: 'i-631l-price', region: 'tw' },
+  '685l':       { yahoo: '00685L.TW', label: '00685L', inputId: 'i-685l-price', region: 'tw' },
   '662':        { yahoo: '00662.TW',  label: '00662',  inputId: 'i-662-price',  region: 'tw' },
   'tw50':       { yahoo: '0050.TW',   label: '0050 (for 200MA)', inputId: null, region: 'tw' },
   'qld':        { yahoo: 'QLD',       label: 'QLD',    inputId: 'i-qld-price',  region: 'us' },
