@@ -167,65 +167,109 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 <h2>📥 持股輸入</h2>
 <p style="color: var(--text-muted); font-size: 13px;">每次更新後資料自動存於瀏覽器 (localStorage)</p>
 
-<h3>核心持股</h3>
-<div class="input-row">
-  <label>00631L</label>
-  <input type="number" id="i-631l-shares" placeholder="張數" step="1">
-  <input type="number" id="i-631l-price" placeholder="價格 (元)" step="0.01">
-  <div class="value" id="v-631l">$0</div>
-</div>
-<div class="input-row">
-  <label>00685L</label>
-  <input type="number" id="i-685l-shares" placeholder="張數" step="0.1">
-  <input type="number" id="i-685l-price" placeholder="價格 (元)" step="0.01">
-  <div class="value" id="v-685l">$0</div>
-</div>
-<div class="input-row">
-  <label>00662</label>
-  <input type="number" id="i-662-shares" placeholder="張數" step="1">
-  <input type="number" id="i-662-price" placeholder="價格 (元)" step="0.01">
-  <div class="value" id="v-662">$0</div>
-</div>
-<div class="input-row">
-  <label>安聯科技</label>
-  <input type="number" id="i-allianz-value" placeholder="總值 (萬)" step="1">
-  <span style="color: var(--text-dim); font-size: 12px;">直接輸入金額</span>
-  <div class="value" id="v-allianz">$0</div>
-</div>
+<h3>📊 投資持股
+  <button id="btn-add-holding" class="btn" style="font-size: 12px; padding: 4px 10px; margin-left: 8px;">＋ 新增</button>
+</h3>
+<p style="color: var(--text-muted); font-size: 12px;">每個項目可 [×] 移除, 點 [＋ 新增] 加新項目. 移除/新增 後 配置 + 分析 自動更新.</p>
 
-<h3>US 持股 (USD)</h3>
-<div class="input-row">
-  <label>QLD</label>
-  <input type="number" id="i-qld-shares" placeholder="股數" step="1">
-  <input type="number" id="i-qld-price" placeholder="價格 USD" step="0.01">
-  <div class="value" id="v-qld">$0</div>
-</div>
-<div class="input-row">
-  <label>TQQQ</label>
-  <input type="number" id="i-tqqq-shares" placeholder="股數" step="1">
-  <input type="number" id="i-tqqq-price" placeholder="價格 USD" step="0.01">
-  <div class="value" id="v-tqqq">$0</div>
-</div>
-<div class="input-row">
-  <label>Tesla</label>
-  <input type="number" id="i-tsla-shares" placeholder="股數" step="1">
-  <input type="number" id="i-tsla-price" placeholder="價格 USD" step="0.01">
-  <div class="value" id="v-tsla">$0</div>
-</div>
 <div class="input-row">
   <label>匯率</label>
-  <input type="number" id="i-usd-rate" placeholder="USD/NTD" step="0.01" value="31.4">
-  <span style="color: var(--text-dim); font-size: 12px;">USD → NTD 匯率</span>
+  <input type="number" id="i-usd-rate" placeholder="USD/NTD" step="0.01" value="31.55">
+  <span style="color: var(--text-dim); font-size: 12px;">USD → NTD (for 美股)</span>
   <div class="value" style="color: var(--text-muted);">參考</div>
 </div>
 
-<h3>期貨</h3>
-<div class="input-row">
-  <label>小台</label>
-  <input type="number" id="i-mxf-lots" placeholder="口數" step="1">
-  <input type="number" id="i-mxf-margin" placeholder="保證金總值 (萬)" step="1">
-  <div class="value" id="v-mxf">$0</div>
+<div id="holdings-container"></div>
+
+<!-- Add holding form (隱藏 inline) -->
+<div id="add-form" style="display: none; background: var(--bg-3); border-radius: 8px; padding: 12px; margin-top: 12px;">
+  <h4 style="margin: 0 0 8px 0; color: var(--accent);">➕ 新增 Holding</h4>
+  <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 6px;">
+    <label style="color: var(--text-muted); font-size: 13px;">名稱</label>
+    <input type="text" id="new-name" placeholder="e.g. 0050 / VTI / 高息 ETF" style="background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; color: var(--text); font-size: 13px;">
+  </div>
+  <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 6px;">
+    <label style="color: var(--text-muted); font-size: 13px;">類別</label>
+    <select id="new-category" style="background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; color: var(--text); font-size: 13px;">
+      <option value="tw-2x">台股 2x 槓桿 ETF (vol 44%)</option>
+      <option value="tw-1x">台股 1x ETF (vol 22%)</option>
+      <option value="us-stock">美股個股 (vol 50%)</option>
+      <option value="us-2x">美股 2x ETF (vol 44%)</option>
+      <option value="us-3x">美股 3x ETF (vol 66%)</option>
+      <option value="fund">主動基金 (vol 25%)</option>
+      <option value="futures">期貨 (vol 35%)</option>
+      <option value="other">其他 (vol 30%)</option>
+    </select>
+  </div>
+  <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 6px;">
+    <label style="color: var(--text-muted); font-size: 13px;">輸入方式</label>
+    <select id="new-input-mode" style="background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; color: var(--text); font-size: 13px;">
+      <option value="shares-price-tw">張數 × 價格 (台股)</option>
+      <option value="shares-price-us">股數 × USD × 匯率 (美股)</option>
+      <option value="direct">直接金額 (萬, 基金/期貨)</option>
+    </select>
+  </div>
+  <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 8px;">
+    <label style="color: var(--text-muted); font-size: 13px;">Yahoo Symbol</label>
+    <input type="text" id="new-yahoo" placeholder="optional, e.g. 0050.TW / VTI" style="background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; color: var(--text); font-size: 13px;">
+  </div>
+  <div>
+    <button class="btn" id="btn-confirm-add">✓ 加入</button>
+    <button class="btn secondary" id="btn-cancel-add">取消</button>
+  </div>
 </div>
+
+<style>
+.holding-row {
+  display: grid;
+  grid-template-columns: 1fr 100px 100px 120px 30px;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0;
+  padding: 4px 0;
+}
+.holding-row .holding-name {
+  font-size: 13px;
+  padding: 4px 8px;
+  background: var(--bg-3);
+  border-radius: 4px;
+}
+.holding-row input {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.holding-row .value {
+  text-align: right;
+  padding: 4px 8px;
+  background: var(--bg-3);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.btn-remove {
+  background: rgba(248, 81, 73, 0.15);
+  color: var(--red);
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-remove:hover { background: rgba(248, 81, 73, 0.3); }
+@media (max-width: 640px) {
+  .holding-row { grid-template-columns: 1fr 70px 70px 80px 26px; gap: 4px; }
+  .holding-row input, .holding-row .value, .holding-row .holding-name { font-size: 11px; padding: 3px 6px; }
+}
+</style>
 
 <h3>現金</h3>
 <div class="input-row">
@@ -343,11 +387,36 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 const RETIREMENT_TARGET = 4800; // 萬
 const VOL_0050 = 22; // 0050 年化波動 %
 
-// Vol assumptions per 標的
-const VOL_MAP = {
-  '631l': 44, '685l': 44, '662': 22, 'allianz': 25, 'qld': 44,
-  'tqqq': 66, 'tsla': 50, 'mxf': 35, 'cash': 0
+// Category definitions
+const CATEGORIES = {
+  'tw-2x':    { label: 'TW 2x',  vol: 44, pledgeable: true,  color: '#f78166', targetKey: '631l' },
+  'tw-1x':    { label: 'TW 1x',  vol: 22, pledgeable: true,  color: '#58a6ff', targetKey: '662' },
+  'us-stock': { label: 'US Stk', vol: 50, pledgeable: false, color: '#a371f7', targetKey: 'others' },
+  'us-2x':    { label: 'US 2x',  vol: 44, pledgeable: false, color: '#f78166', targetKey: 'others' },
+  'us-3x':    { label: 'US 3x',  vol: 66, pledgeable: false, color: '#f85149', targetKey: 'others' },
+  'fund':     { label: 'Fund',   vol: 25, pledgeable: false, color: '#3fb950', targetKey: 'allianz' },
+  'futures':  { label: 'Fut',    vol: 35, pledgeable: false, color: '#d29922', targetKey: 'others' },
+  'other':    { label: 'Other',  vol: 30, pledgeable: false, color: '#8b949e', targetKey: 'others' }
 };
+
+// Initial holdings (5/19 baseline)
+const INITIAL_HOLDINGS = [
+  { id: '631l',    name: '00631L',     category: 'tw-2x',    inputMode: 'shares-price-tw', shares: 861, price: 31.58, yahooSymbol: '00631L.TW' },
+  { id: '685l',    name: '00685L',     category: 'tw-2x',    inputMode: 'shares-price-tw', shares: 12.5, price: 32, yahooSymbol: '00685L.TW' },
+  { id: '662',     name: '00662',      category: 'tw-1x',    inputMode: 'shares-price-tw', shares: 27, price: 119.20, yahooSymbol: '00662.TW' },
+  { id: 'allianz', name: '安聯科技',    category: 'fund',     inputMode: 'direct',          value: 251 },
+  { id: 'tsla',    name: 'Tesla',      category: 'us-stock', inputMode: 'shares-price-us', shares: 15, price: 414.50, yahooSymbol: 'TSLA' }
+];
+
+let holdings = JSON.parse(JSON.stringify(INITIAL_HOLDINGS));  // deep clone
+
+function getHoldingValue(h) {
+  const fx = parseFloat($('i-usd-rate')?.value) || 31.55;
+  if (h.inputMode === 'shares-price-tw') return (h.shares || 0) * (h.price || 0) * 1000 / 10000;
+  if (h.inputMode === 'shares-price-us') return (h.shares || 0) * (h.price || 0) * fx / 10000;
+  if (h.inputMode === 'direct')          return h.value || 0;
+  return 0;
+}
 
 // Target 配置 % - 分階段 (累積期 / 過渡期 / 退休前 / 退休後)
 const TARGET_PHASES = {
@@ -378,86 +447,148 @@ let CURRENT_PHASE = localStorage.getItem('monitor-phase') || 'accumulation';
 let TARGETS = TARGET_PHASES[CURRENT_PHASE];
 
 
-// Defaults (基於 5/19 latest state)
+// Non-holding defaults (cash, debt, etc.)
 const DEFAULTS = {
-  '631l-shares': 861, '631l-price': 31.58,
-  '685l-shares': 12.5, '685l-price': 32,
-  '662-shares': 27, '662-price': 119.20,
-  'allianz-value': 259,
-  'qld-shares': 736, 'qld-price': 91.72,
-  'tqqq-shares': 87, 'tqqq-price': 76.28,
-  'tsla-shares': 15, 'tsla-price': 428.35,
-  'usd-rate': 31.4,
-  'mxf-lots': 2, 'mxf-margin': 83,
-  'cash-checking': 160, 'cash-fixed': 65,
-  'debt-credit': 287, 'debt-pledge': 478,
+  'usd-rate': 31.55,
+  'cash-checking': 99, 'cash-fixed': 65,
+  'debt-credit': 287, 'debt-pledge': 508,
   't-631l-ma': 'on', 't-ndx-ma': 'on'
 };
 
 function $(id) { return document.getElementById(id); }
-function val(id) { return parseFloat($(id).value) || 0; }
+function val(id) { const el = $(id); return el ? (parseFloat(el.value) || 0) : 0; }
 function fmt(n) { return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n)); }
 
+// ============================================================
+// HOLDINGS RENDER (dynamic UI)
+// ============================================================
+
+function renderHoldings() {
+  const container = $('holdings-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  holdings.forEach(h => {
+    const cat = CATEGORIES[h.category];
+    const value = getHoldingValue(h);
+    const row = document.createElement('div');
+    row.className = 'holding-row';
+    row.dataset.id = h.id;
+
+    let inputs = '';
+    if (h.inputMode === 'shares-price-tw') {
+      inputs = `
+        <input type="number" data-field="shares" placeholder="張數" step="0.1" value="${h.shares ?? ''}">
+        <input type="number" data-field="price" placeholder="價" step="0.01" value="${h.price ?? ''}">`;
+    } else if (h.inputMode === 'shares-price-us') {
+      inputs = `
+        <input type="number" data-field="shares" placeholder="股數" step="1" value="${h.shares ?? ''}">
+        <input type="number" data-field="price" placeholder="USD" step="0.01" value="${h.price ?? ''}">`;
+    } else {
+      inputs = `
+        <input type="number" data-field="value" placeholder="金額(萬)" step="0.1" value="${h.value ?? ''}" style="grid-column: span 2;">`;
+    }
+
+    const yahooBadge = h.yahooSymbol ? `<span style="font-size: 10px; color: var(--text-dim); margin-left: 4px;">[${h.yahooSymbol}]</span>` : '';
+
+    row.innerHTML = `
+      <span class="holding-name" style="border-left: 3px solid ${cat.color};">
+        ${h.name} <span style="font-size: 10px; color: var(--text-muted);">[${cat.label}]</span>${yahooBadge}
+      </span>
+      ${inputs}
+      <div class="value">$${fmt(value)} 萬</div>
+      <button class="btn-remove" data-id="${h.id}" title="移除">×</button>
+    `;
+    container.appendChild(row);
+  });
+
+  // Attach input listeners
+  container.querySelectorAll('input').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const row = e.target.closest('.holding-row');
+      const id = row.dataset.id;
+      const field = e.target.dataset.field;
+      const h = holdings.find(x => x.id === id);
+      if (h) {
+        h[field] = parseFloat(e.target.value) || 0;
+        calcAll();
+        saveData(true);
+      }
+    });
+  });
+
+  // Attach remove listeners
+  container.querySelectorAll('.btn-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = e.target.dataset.id;
+      const h = holdings.find(x => x.id === id);
+      if (h && confirm(`移除「${h.name}」?`)) {
+        holdings = holdings.filter(x => x.id !== id);
+        renderHoldings();
+        calcAll();
+        saveData(true);
+      }
+    });
+  });
+}
+
+function addHolding() {
+  const name = $('new-name').value.trim();
+  const category = $('new-category').value;
+  const inputMode = $('new-input-mode').value;
+  const yahooSymbol = $('new-yahoo').value.trim() || null;
+  if (!name) { alert('請輸入名稱'); return; }
+
+  const id = 'h-' + Date.now();
+  const newH = { id, name, category, inputMode, yahooSymbol, shares: 0, price: 0, value: 0 };
+  holdings.push(newH);
+  renderHoldings();
+  calcAll();
+  saveData(true);
+
+  $('new-name').value = '';
+  $('new-yahoo').value = '';
+  $('add-form').style.display = 'none';
+}
+
 function calcAll() {
-  // Position values (in 萬 NTD)
-  const usdRate = val('i-usd-rate') || 31.4;
+  // Re-render holdings (to refresh values)
+  document.querySelectorAll('.holding-row .value').forEach(el => {
+    const id = el.closest('.holding-row').dataset.id;
+    const h = holdings.find(x => x.id === id);
+    if (h) el.textContent = `$${fmt(getHoldingValue(h))} 萬`;
+  });
 
-  // 00631L: 張 × 1000 股 × 價格 / 10000 = 萬
-  const v631l = val('i-631l-shares') * val('i-631l-price') * 1000 / 10000;
-  const v685l = val('i-685l-shares') * val('i-685l-price') * 1000 / 10000;
-  const v662 = val('i-662-shares') * val('i-662-price') * 1000 / 10000;
-  const vAllianz = val('i-allianz-value');
-
-  // US (USD → NTD → 萬)
-  const vQld = val('i-qld-shares') * val('i-qld-price') * usdRate / 10000;
-  const vTqqq = val('i-tqqq-shares') * val('i-tqqq-price') * usdRate / 10000;
-  const vTsla = val('i-tsla-shares') * val('i-tsla-price') * usdRate / 10000;
-
-  const vMxf = val('i-mxf-margin');
+  // Cash + debts
   const vCashChecking = val('i-cash-checking');
   const vCashFixed = val('i-cash-fixed');
   const vCash = vCashChecking + vCashFixed;
-
   const debtCredit = val('i-debt-credit');
   const debtPledge = val('i-debt-pledge');
-
-  // Display individual values
-  $('v-631l').textContent = `$${fmt(v631l)} 萬`;
-  $('v-685l').textContent = `$${fmt(v685l)} 萬`;
-  $('v-662').textContent = `$${fmt(v662)} 萬`;
-  $('v-allianz').textContent = `$${fmt(vAllianz)} 萬`;
-  $('v-qld').textContent = `$${fmt(vQld)} 萬`;
-  $('v-tqqq').textContent = `$${fmt(vTqqq)} 萬`;
-  $('v-tsla').textContent = `$${fmt(vTsla)} 萬`;
-  $('v-mxf').textContent = `$${fmt(vMxf)} 萬`;
   $('v-cash-checking').textContent = `$${fmt(vCashChecking)} 萬`;
   $('v-cash-fixed').textContent = `$${fmt(vCashFixed)} 萬`;
   $('v-debt-credit').textContent = `$${fmt(debtCredit)} 萬`;
   $('v-debt-pledge').textContent = `$${fmt(debtPledge)} 萬`;
 
-  // Totals
-  const investmentPool = v631l + v685l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf;
+  // Iterate holdings → totals, vol, LTV, category sums
+  let investmentPool = 0;
+  let weightedVolSum = 0;
+  let ltvBase = 0;
+  const catSums = {};  // category → 總值
+
+  holdings.forEach(h => {
+    const cat = CATEGORIES[h.category];
+    const v = getHoldingValue(h);
+    investmentPool += v;
+    weightedVolSum += v * cat.vol;
+    if (cat.pledgeable) ltvBase += v;
+    catSums[h.category] = (catSums[h.category] || 0) + v;
+  });
+
   const liquid = investmentPool + vCash - debtCredit - debtPledge;
   const total = investmentPool + vCash;
-
-  // LTV (對 00631L + 00685L + 00662 base, 所有 Taiwan ETF 都可質押)
-  const ltvBase = v631l + v685l + v662;
   const ltv = ltvBase > 0 ? (debtPledge / ltvBase * 100) : 0;
-
-  // Vol estimate (weighted average)
-  let weightedVol = 0;
-  if (total > 0) {
-    weightedVol = (
-      v631l * VOL_MAP['631l'] +
-      v685l * VOL_MAP['685l'] +
-      v662 * VOL_MAP['662'] +
-      vAllianz * VOL_MAP['allianz'] +
-      vQld * VOL_MAP['qld'] +
-      vTqqq * VOL_MAP['tqqq'] +
-      vTsla * VOL_MAP['tsla'] +
-      vMxf * VOL_MAP['mxf']
-    ) / total;
-  }
+  const weightedVol = total > 0 ? weightedVolSum / total : 0;
   const volRatio = weightedVol / VOL_0050;
 
   // Update cards
@@ -491,20 +622,37 @@ function calcAll() {
     $('p-text').textContent = `🎉 已達 退休門檻!`;
   }
 
-  // Allocation table — 00631L + 00685L 視為「Taiwan 2x」同 bucket
-  const vTwLev = v631l + v685l;
-  const allocations = [
-    { name: 'Taiwan 2x (00631L+00685L)', curr: vTwLev, target: TARGETS['631l'], highlight: true },
-    { name: '　└ 00631L', curr: v631l, target: null, sub: true },
-    { name: '　└ 00685L', curr: v685l, target: null, sub: true },
-    { name: '00662', curr: v662, target: TARGETS['662'] },
-    { name: '安聯', curr: vAllianz, target: TARGETS['allianz'] },
-    { name: '現金', curr: vCash, target: TARGETS['cash'] },
-    { name: 'QLD', curr: vQld, target: 0 },
-    { name: 'TQQQ', curr: vTqqq, target: 0 },
-    { name: 'Tesla', curr: vTsla, target: 0 },
-    { name: '小台', curr: vMxf, target: 0 }
-  ];
+  // Allocation table: group by category, show holdings as sub-rows
+  // First, group holdings by targetKey
+  const groupedByTarget = {};  // targetKey → { categories: [], holdings: [], total: 0 }
+  holdings.forEach(h => {
+    const cat = CATEGORIES[h.category];
+    const key = cat.targetKey;
+    if (!groupedByTarget[key]) groupedByTarget[key] = { holdings: [], total: 0 };
+    groupedByTarget[key].holdings.push(h);
+    groupedByTarget[key].total += getHoldingValue(h);
+  });
+
+  const allocations = [];
+  // Order: 631l (TW 2x), 662 (TW 1x), allianz (Fund), cash, others
+  const orderedKeys = ['631l', '662', 'allianz', 'cash', 'others'];
+  for (const key of orderedKeys) {
+    const target = TARGETS[key] ?? 0;
+    if (key === 'cash') {
+      allocations.push({ name: '現金 (活+定)', curr: vCash, target: target });
+      continue;
+    }
+    const group = groupedByTarget[key];
+    if (!group && target === 0) continue;
+    const total_curr = group ? group.total : 0;
+    const labels = { '631l': 'Taiwan 2x', '662': 'Taiwan 1x', 'allianz': '主動基金', 'others': '其他' };
+    allocations.push({ name: labels[key], curr: total_curr, target: target, highlight: true });
+    if (group && group.holdings.length > 0) {
+      group.holdings.forEach(h => {
+        allocations.push({ name: '　└ ' + h.name, curr: getHoldingValue(h), target: null, sub: true });
+      });
+    }
+  }
 
   let allocHTML = '';
   for (const a of allocations) {
@@ -538,8 +686,14 @@ function calcAll() {
   }
   $('alloc-table').innerHTML = allocHTML;
 
+  // Update card values
+  $('d-portfolio').textContent = `$${fmt(investmentPool)} 萬`;
+  $('d-liquid').textContent = `$${fmt(liquid)} 萬`;
+  $('d-ltv').textContent = `${ltv.toFixed(1)}%`;
+  $('d-vol').textContent = `${volRatio.toFixed(2)}x`;
+
   // Actions
-  const actions = generateActions(v631l, v685l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash, ltv, volRatio, liquid);
+  const actions = generateActions(catSums, vCash, ltv, volRatio, liquid, investmentPool);
   $('actions').innerHTML = actions.map(a => `<li>${a}</li>`).join('');
 }
 
@@ -554,23 +708,23 @@ function generateAction(name, deviation, value, currPct, target) {
   return `<span class="tag" style="color: var(--text-muted)">略少, 觀察</span>`;
 }
 
-function generateActions(v631l, v685l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf, vCash, ltv, volRatio, liquid) {
-  const vTwLev = v631l + v685l;
+function generateActions(catSums, vCash, ltv, volRatio, liquid, investmentPool) {
   const actions = [];
   const ma631l = $('t-631l-ma').dataset.state === 'on';
   const maNdx = $('t-ndx-ma').dataset.state === 'on';
+  const total = investmentPool + vCash;
 
   // Critical: 200MA breach
   if (!ma631l) {
-    actions.push(`🚨 <strong>00631L 跌破 200MA → 啟動場景 B</strong>: 換 30% 持股 + 70% 現金, 立即 derisk`);
+    actions.push(`🚨 <strong>台股 200MA 跌破 → 啟動場景 B</strong>: 換 30% 持股 + 70% 現金, 立即 derisk`);
   }
   if (!maNdx) {
-    actions.push(`🚨 <strong>NDX 跌破 200MA</strong> → 砍 QLD/TQQQ/00662 (NDX-相關) 至 30%`);
+    actions.push(`🚨 <strong>NDX 跌破 200MA</strong> → 砍 US 相關部位 至 30%`);
   }
 
   // LTV warnings
   if (ltv >= 25) {
-    actions.push(`🚨 <strong>LTV ${ltv.toFixed(1)}% 過高 (>25%)</strong>: 立刻減持 00631L 或還質押, 降至 20%`);
+    actions.push(`🚨 <strong>LTV ${ltv.toFixed(1)}% 過高 (>25%)</strong>: 立刻減持 Taiwan ETF 或還質押, 降至 20%`);
   } else if (ltv >= 20) {
     actions.push(`⚠️ <strong>LTV ${ltv.toFixed(1)}% 警戒</strong>: 不可再加質押, 等 base 成長`);
   }
@@ -580,11 +734,10 @@ function generateActions(v631l, v685l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf,
                     CURRENT_PHASE === 'pre-retire' ? 1.3 :
                     CURRENT_PHASE === 'transition' ? 1.4 : 1.6;
   if (volRatio > volTarget + 0.2 && ma631l) {
-    actions.push(`⚠️ Vol ${volRatio.toFixed(2)}x 0050 偏高 (${CURRENT_PHASE} target ${volTarget}x): 考慮 reduce 00631L`);
+    actions.push(`⚠️ Vol ${volRatio.toFixed(2)}x 0050 偏高 (${CURRENT_PHASE} target ${volTarget}x): 考慮 reduce 高 vol 部位`);
   }
 
   // Cash warnings (phase-aware, 累積期不警告)
-  const total = v631l + v685l + v662 + vAllianz + vQld + vTqqq + vTsla + vMxf + vCash;
   const cashPct = total > 0 ? (vCash / total * 100) : 0;
   if (CURRENT_PHASE === 'pre-retire' && cashPct < 15) {
     actions.push(`💰 <strong>現金 ${cashPct.toFixed(1)}% 不足</strong> (退休前 target 18%): 加速 build cash buffer`);
@@ -594,16 +747,27 @@ function generateActions(v631l, v685l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf,
     actions.push(`📈 累積期 cash ${cashPct.toFixed(1)}% 偏高: 可考慮加碼 equity (cash 拖累報酬 ~2%/yr)`);
   }
 
-  // Small holdings to clear
-  if (vTqqq > 1) actions.push(`💸 TQQQ ${fmt(vTqqq)} 萬: 高 vol, 建議反彈時清掉`);
-  if (vTsla > 1) actions.push(`💸 Tesla ${fmt(vTsla)} 萬: 個股風險, 建議清掉`);
-  if (vMxf > 1) actions.push(`💸 小台 ${fmt(vMxf)} 萬: 期貨 cost of carry, 建議反彈時清掉 (4 週內)`);
-  if (vQld > 1) actions.push(`💸 QLD ${fmt(vQld)} 萬: 可換成 00662 (no decay), 建議反彈時操作`);
+  // High-vol holdings warnings — iterate over actual holdings (skip if removed)
+  holdings.forEach(h => {
+    const v = getHoldingValue(h);
+    if (v < 1) return;
+    const cat = CATEGORIES[h.category];
+    if (h.category === 'us-3x') {
+      actions.push(`💸 ${h.name} ${fmt(v)} 萬: 3x leverage 高 decay, 建議反彈時清掉`);
+    } else if (h.category === 'us-stock') {
+      actions.push(`💸 ${h.name} ${fmt(v)} 萬: 個股風險, 考慮清掉`);
+    } else if (h.category === 'futures') {
+      actions.push(`💸 ${h.name} ${fmt(v)} 萬: 期貨 cost of carry, 建議反彈時清掉`);
+    } else if (h.category === 'us-2x') {
+      actions.push(`💸 ${h.name} ${fmt(v)} 萬: 可換成 1x ETF + 質押 (no decay), 反彈時操作`);
+    }
+  });
 
-  // 00662 building (phase-aware)
-  const target662 = total * (TARGETS['662'] / 100);
-  if (v662 < target662 - 50 && ma631l && CURRENT_PHASE === 'accumulation') {
-    actions.push(`📈 00662 還可加碼 ~${fmt(target662 - v662)} 萬 (累積期 target ${TARGETS['662']}% of total)`);
+  // 00662 (or any tw-1x) building (phase-aware)
+  const tw1xTotal = catSums['tw-1x'] || 0;
+  const target1x = total * (TARGETS['662'] / 100);
+  if (tw1xTotal < target1x - 50 && ma631l && CURRENT_PHASE === 'accumulation') {
+    actions.push(`📈 TW 1x ETF 還可加碼 ~${fmt(target1x - tw1xTotal)} 萬 (累積期 target ${TARGETS['662']}% of total)`);
   }
 
   // Retirement progress
@@ -614,45 +778,81 @@ function generateActions(v631l, v685l, v662, vAllianz, vQld, vTqqq, vTsla, vMxf,
   }
 
   if (actions.length === 0) {
-    actions.push(`✅ 配置正常, 繼續累積期 strategy`);
-    if (ma631l) actions.push(`📈 200MA 站上, 安全狀態`);
+    actions.push(`✅ 配置正常, 繼續 ${CURRENT_PHASE} strategy`);
+    if (ma631l && maNdx) actions.push(`📈 200MA 站上 (TW + US), 安全狀態`);
   }
 
   return actions;
 }
 
 function saveData(silent) {
-  const data = {};
+  const data = {
+    holdings: holdings,
+    inputs: {},
+    toggles: {},
+    _savedAt: new Date().toISOString()
+  };
   document.querySelectorAll('input').forEach(i => {
-    if (i.id) data[i.id.replace('i-', '')] = i.value;
+    if (i.id && i.id.startsWith('i-')) data.inputs[i.id.replace('i-', '')] = i.value;
   });
   document.querySelectorAll('.toggle').forEach(t => {
-    if (t.id) data[t.id] = t.dataset.state;
+    if (t.id) data.toggles[t.id] = t.dataset.state;
   });
-  data._savedAt = new Date().toISOString();
   localStorage.setItem('portfolio-monitor', JSON.stringify(data));
   if (!silent) alert('✅ 已儲存');
 }
 
 function loadData() {
-  const data = JSON.parse(localStorage.getItem('portfolio-monitor') || '{}');
-  if (Object.keys(data).length === 0) {
-    loadDefaults();
-    return;
+  const raw = localStorage.getItem('portfolio-monitor');
+  if (!raw) { loadDefaults(); return; }
+  const data = JSON.parse(raw);
+
+  // New schema (has 'holdings' array)
+  if (Array.isArray(data.holdings)) {
+    holdings = data.holdings;
+    Object.keys(data.inputs || {}).forEach(k => {
+      const el = $('i-' + k);
+      if (el) el.value = data.inputs[k];
+    });
+    Object.keys(data.toggles || {}).forEach(k => {
+      const el = $(k);
+      if (el && el.classList.contains('toggle')) {
+        el.dataset.state = data.toggles[k];
+        updateToggle(el);
+      }
+    });
+  } else {
+    // Old schema migration: try to map old keys to holdings
+    holdings = JSON.parse(JSON.stringify(INITIAL_HOLDINGS));
+    const oldData = data;
+    holdings.forEach(h => {
+      const sharesK = h.id + '-shares';
+      const priceK = h.id + '-price';
+      const valueK = h.id + '-value';
+      if (oldData[sharesK] !== undefined) h.shares = parseFloat(oldData[sharesK]) || 0;
+      if (oldData[priceK] !== undefined) h.price = parseFloat(oldData[priceK]) || 0;
+      if (oldData[valueK] !== undefined) h.value = parseFloat(oldData[valueK]) || 0;
+    });
+    // 也 load 非 holding inputs
+    ['usd-rate', 'cash-checking', 'cash-fixed', 'debt-credit', 'debt-pledge'].forEach(k => {
+      const el = $('i-' + k);
+      if (el && oldData[k] !== undefined) el.value = oldData[k];
+    });
+    ['t-631l-ma', 't-ndx-ma'].forEach(k => {
+      const el = $(k);
+      if (el && oldData[k] !== undefined) {
+        el.dataset.state = oldData[k];
+        updateToggle(el);
+      }
+    });
   }
-  Object.keys(data).forEach(k => {
-    const inputEl = $('i-' + k);
-    const toggleEl = $(k);
-    if (inputEl) inputEl.value = data[k];
-    if (toggleEl && toggleEl.classList.contains('toggle')) {
-      toggleEl.dataset.state = data[k];
-      updateToggle(toggleEl);
-    }
-  });
+
+  renderHoldings();
   calcAll();
 }
 
 function loadDefaults() {
+  holdings = JSON.parse(JSON.stringify(INITIAL_HOLDINGS));
   Object.keys(DEFAULTS).forEach(k => {
     const inputEl = $('i-' + k);
     const toggleEl = $(k);
@@ -662,6 +862,7 @@ function loadDefaults() {
       updateToggle(toggleEl);
     }
   });
+  renderHoldings();
   calcAll();
 }
 
@@ -689,11 +890,13 @@ function setupToggles() {
 function resetAll() {
   if (!confirm('確定清空所有資料?')) return;
   localStorage.removeItem('portfolio-monitor');
+  holdings = [];
   document.querySelectorAll('input').forEach(i => i.value = '');
   document.querySelectorAll('.toggle').forEach(t => {
     t.dataset.state = 'on';
     updateToggle(t);
   });
+  renderHoldings();
   calcAll();
 }
 
@@ -707,17 +910,25 @@ const CORS_PROXIES = [
   url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 ];
 
-const SYMBOLS = {
-  '631l':       { yahoo: '00631L.TW', label: '00631L', inputId: 'i-631l-price', region: 'tw' },
-  '685l':       { yahoo: '00685L.TW', label: '00685L', inputId: 'i-685l-price', region: 'tw' },
-  '662':        { yahoo: '00662.TW',  label: '00662',  inputId: 'i-662-price',  region: 'tw' },
-  'tw50':       { yahoo: '0050.TW',   label: '0050 (for 200MA)', inputId: null, region: 'tw' },
-  'qld':        { yahoo: 'QLD',       label: 'QLD',    inputId: 'i-qld-price',  region: 'us' },
-  'tqqq':       { yahoo: 'TQQQ',      label: 'TQQQ',   inputId: 'i-tqqq-price', region: 'us' },
-  'tsla':       { yahoo: 'TSLA',      label: 'Tesla',  inputId: 'i-tsla-price', region: 'us' },
-  'ndx':        { yahoo: '%5ENDX',    label: 'NDX (for 200MA)', inputId: null, region: 'us' },
-  'usdtwd':     { yahoo: 'TWD%3DX',   label: 'USD/TWD', inputId: 'i-usd-rate', region: 'us' }
-};
+// Benchmark symbols (always fetched, for 200MA)
+const BENCH_SYMBOLS = [
+  { yahoo: '0050.TW', label: '0050 (for 200MA)', toggleId: 't-631l-ma', region: 'tw' },
+  { yahoo: '%5ENDX',  label: 'NDX (for 200MA)',  toggleId: 't-ndx-ma',  region: 'us' },
+  { yahoo: 'TWD%3DX', label: 'USD/TWD',          inputId: 'i-usd-rate', region: 'us' }
+];
+
+// Symbols dynamically derived from holdings (with yahooSymbol set)
+function getHoldingSymbols() {
+  return holdings.filter(h => h.yahooSymbol).map(h => {
+    const cat = CATEGORIES[h.category];
+    return {
+      yahoo: h.yahooSymbol,
+      label: h.name,
+      holdingId: h.id,
+      region: cat.targetKey === '631l' || cat.targetKey === '662' || cat.targetKey === 'allianz' ? 'tw' : 'us'
+    };
+  });
+}
 
 function logFetch(msg) {
   const el = $('fetch-log');
@@ -793,36 +1004,41 @@ async function refreshPrices(filter = 'all') {
   statusEl.textContent = '🔄 Fetching prices...';
   logEl.textContent = '';
 
-  const targets = Object.entries(SYMBOLS).filter(([k, info]) =>
-    filter === 'all' || info.region === filter
-  );
+  // Build target list: holdings + benchmarks (filter by region)
+  const holdingSyms = getHoldingSymbols().filter(s => filter === 'all' || s.region === filter);
+  const benchSyms = BENCH_SYMBOLS.filter(s => filter === 'all' || s.region === filter);
+  const allTargets = [...holdingSyms, ...benchSyms];
 
   let success = 0, fail = 0;
 
-  for (const [key, info] of targets) {
+  for (const info of allTargets) {
     try {
       const result = await fetchYahoo(info.yahoo, info.label);
 
-      // Update input field if mapped
-      if (info.inputId) {
-        const inputEl = $(info.inputId);
-        if (inputEl && result.price) {
-          inputEl.value = result.price.toFixed(2);
+      // Update holding price if it's a holding
+      if (info.holdingId && result.price) {
+        const h = holdings.find(x => x.id === info.holdingId);
+        if (h) {
+          h.price = parseFloat(result.price.toFixed(2));
+          // Re-render input value
+          const row = document.querySelector(`.holding-row[data-id="${info.holdingId}"]`);
+          if (row) {
+            const priceInput = row.querySelector('[data-field="price"]');
+            if (priceInput) priceInput.value = h.price;
+          }
         }
       }
-
-      // Special handling for 200MA benchmarks
-      if (key === 'tw50' && result.above200ma !== null) {
-        const t = $('t-631l-ma');
-        t.dataset.state = result.above200ma ? 'on' : 'off';
-        updateToggle(t);
-        logFetch(`  ↳ 0050: $${result.price.toFixed(2)}, 200MA $${result.ma200.toFixed(2)}, ${result.above200ma ? '站上' : '跌破'}`);
+      // Update direct input field (e.g. exchange rate)
+      if (info.inputId && result.price) {
+        const el = $(info.inputId);
+        if (el) el.value = result.price.toFixed(2);
       }
-      if (key === 'ndx' && result.above200ma !== null) {
-        const t = $('t-ndx-ma');
+      // Toggle 200MA
+      if (info.toggleId && result.above200ma !== null) {
+        const t = $(info.toggleId);
         t.dataset.state = result.above200ma ? 'on' : 'off';
         updateToggle(t);
-        logFetch(`  ↳ NDX: ${result.price.toFixed(2)}, 200MA ${result.ma200.toFixed(2)}, ${result.above200ma ? '站上' : '跌破'}`);
+        logFetch(`  ↳ ${info.label}: $${result.price.toFixed(2)}, 200MA $${result.ma200.toFixed(2)}, ${result.above200ma ? '站上' : '跌破'}`);
       }
 
       success++;
@@ -831,7 +1047,6 @@ async function refreshPrices(filter = 'all') {
       fail++;
     }
 
-    // Small delay between requests to avoid rate limit
     await new Promise(r => setTimeout(r, 200));
   }
 
@@ -865,6 +1080,13 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-refresh').addEventListener('click', () => refreshPrices('all'));
   $('btn-refresh-tw').addEventListener('click', () => refreshPrices('tw'));
   $('btn-refresh-us').addEventListener('click', () => refreshPrices('us'));
+
+  // Add holding controls
+  $('btn-add-holding').addEventListener('click', () => {
+    $('add-form').style.display = $('add-form').style.display === 'none' ? 'block' : 'none';
+  });
+  $('btn-confirm-add').addEventListener('click', addHolding);
+  $('btn-cancel-add').addEventListener('click', () => { $('add-form').style.display = 'none'; });
 
   // Phase selector
   const phaseSelect = $('phase-select');
