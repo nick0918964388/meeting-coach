@@ -399,11 +399,11 @@ const CATEGORIES = {
   'other':    { label: 'Other',  vol: 30, pledgeable: false, color: '#8b949e', targetKey: 'others' }
 };
 
-// Initial holdings (5/19 baseline)
+// Initial holdings (5/27 baseline, actual market prices)
 const INITIAL_HOLDINGS = [
-  { id: '631l',    name: '00631L',     category: 'tw-2x',    inputMode: 'shares-price-tw', shares: 861, price: 31.58, yahooSymbol: '00631L.TW' },
-  { id: '685l',    name: '00685L',     category: 'tw-2x',    inputMode: 'shares-price-tw', shares: 12.5, price: 32, yahooSymbol: '00685L.TW' },
-  { id: '662',     name: '00662',      category: 'tw-1x',    inputMode: 'shares-price-tw', shares: 27, price: 119.20, yahooSymbol: '00662.TW' },
+  { id: '631l',    name: '00631L',     category: 'tw-2x',    inputMode: 'shares-price-tw', shares: 669, price: 34.5, yahooSymbol: '00631L.TW' },
+  { id: '685l',    name: '00685L',     category: 'tw-2x',    inputMode: 'shares-price-tw', shares: 26, price: 286, yahooSymbol: '00685L.TW' },
+  { id: '662',     name: '00662',      category: 'tw-1x',    inputMode: 'shares-price-tw', shares: 27, price: 119.50, yahooSymbol: '00662.TW' },
   { id: 'allianz', name: '安聯科技',    category: 'fund',     inputMode: 'direct',          value: 251 },
   { id: 'tsla',    name: 'Tesla',      category: 'us-stock', inputMode: 'shares-price-us', shares: 15, price: 414.50, yahooSymbol: 'TSLA' }
 ];
@@ -447,7 +447,7 @@ let CURRENT_PHASE = localStorage.getItem('monitor-phase') || 'accumulation';
 let TARGETS = TARGET_PHASES[CURRENT_PHASE];
 
 
-// Non-holding defaults (cash, debt, etc.)
+// Non-holding defaults (cash, debt, etc.) — updated 5/27
 const DEFAULTS = {
   'usd-rate': 31.55,
   'cash-checking': 99, 'cash-fixed': 65,
