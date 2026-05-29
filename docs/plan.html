@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="theme-color" content="#0d1117" />
-<title>退休 4,800 萬計畫 — Final Checklist</title>
+<title>退休計畫 — 動態現金流模型</title>
 <style>
 :root {
   --bg: #0d1117;
@@ -13,546 +12,669 @@
   --border: #2a3340;
   --text: #e6edf3;
   --text-muted: #8b949e;
-  --text-dim: #6e7681;
   --accent: #58a6ff;
-  --green: #3fb950;
-  --yellow: #d29922;
-  --orange: #f78166;
-  --red: #f85149;
+  --accent-2: #7ee787;
+  --warn: #f78166;
+  --danger: #f85149;
+  --success: #3fb950;
 }
 * { box-sizing: border-box; }
-html, body {
-  margin: 0; padding: 0;
+body {
+  margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", Helvetica, Arial, sans-serif;
-  font-size: 15px;
-  line-height: 1.6;
-}
-.container {
-  max-width: 880px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 16px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 24px 20px 100px;
 }
-.nav {
-  position: sticky; top: 0;
-  background: var(--bg-2);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 20px;
-  display: flex; justify-content: space-between; align-items: center;
-  z-index: 10;
-}
-.nav h2 { margin: 0; font-size: 16px; }
-.nav a {
-  color: var(--accent); text-decoration: none;
-  padding: 6px 12px; background: var(--bg-3);
-  border-radius: 6px; font-size: 13px;
-}
-.nav a:hover { background: var(--border); }
-h1 {
-  font-size: 32px;
-  margin: 24px 0 12px;
-  background: linear-gradient(135deg, #58a6ff, #7ee787);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-h2 {
-  font-size: 22px;
-  margin: 32px 0 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-h3 { font-size: 17px; margin: 20px 0 8px; color: var(--accent-2); }
-h4 { font-size: 15px; margin: 12px 0 6px; color: var(--text-muted); }
-
-.hero {
-  background: linear-gradient(135deg, #1f2630, #161b22);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  margin: 20px 0;
-}
-.hero .target {
-  font-size: 36px; font-weight: bold;
-  color: var(--green);
-}
-.hero .sub { color: var(--text-muted); margin-top: 8px; }
-
-.section {
+h1 { font-size: 20px; margin: 0 0 4px; }
+.subtitle { color: var(--text-muted); margin: 0 0 16px; font-size: 13px; }
+nav { display: flex; gap: 12px; margin: 0 0 16px; font-size: 13px; }
+nav a { color: var(--accent); text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+nav a.active { color: var(--text); font-weight: 600; }
+.card {
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 16px 20px;
-  margin: 16px 0;
+  padding: 16px;
+  margin-bottom: 16px;
 }
-
-table {
-  width: 100%; border-collapse: collapse;
-  margin: 12px 0;
-}
-th, td {
-  text-align: left;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
-th { color: var(--text-muted); font-weight: 600; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.highlight { background: rgba(63, 185, 80, 0.1); }
-
-ul, ol { padding-left: 22px; }
-li { margin: 4px 0; }
-.checkbox { color: var(--text-dim); }
-.checkbox::before {
-  content: "☐ ";
-  color: var(--text-dim);
-}
-
-code, pre {
-  background: var(--bg-3);
-  border-radius: 4px;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-}
-code { padding: 1px 6px; font-size: 13px; }
-pre {
-  padding: 12px 16px;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.tag.green { background: rgba(63, 185, 80, 0.2); color: var(--green); }
-.tag.yellow { background: rgba(210, 153, 34, 0.2); color: var(--yellow); }
-.tag.orange { background: rgba(247, 129, 102, 0.2); color: var(--orange); }
-.tag.red { background: rgba(248, 81, 73, 0.2); color: var(--red); }
-.tag.accent { background: rgba(88, 166, 255, 0.2); color: var(--accent); }
-
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
+.card h3 { font-size: 13px; color: var(--text-muted); margin: 16px 0 8px; font-weight: 600; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+@media (max-width: 620px) { .grid2 { grid-template-columns: 1fr; } }
+.input-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 12px;
+  margin-bottom: 8px;
 }
-.card {
+.input-row label { color: var(--text-muted); flex: 1; min-width: 0; }
+.input-row input, .input-row select {
+  width: 110px;
   background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text);
+  text-align: right;
+}
+.btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover { opacity: 0.9; }
+.btn.ghost { background: var(--bg-3); color: var(--text); border: 1px solid var(--border); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.muted { color: var(--text-muted); }
+.tiny { font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-muted); font-weight: 600; }
+.scenario-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.tab {
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+}
+.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chart-wrap { position: relative; overflow-x: auto; }
+canvas { display: block; width: 100%; max-width: 100%; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 620px) { .kpi-grid { grid-template-columns: 1fr; } }
+.kpi {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px 16px;
+  padding: 12px;
 }
-.card .label { color: var(--text-muted); font-size: 12px; }
-.card .value { font-size: 20px; font-weight: 600; margin-top: 4px; }
-
-.year-block {
-  border-left: 3px solid var(--accent);
-  padding-left: 16px;
-  margin: 16px 0;
-}
-.year-block.hot { border-left-color: var(--orange); }
-.year-block.goal { border-left-color: var(--green); }
-
+.kpi .k-label { color: var(--text-muted); font-size: 12px; }
+.kpi .k-value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.kpi .k-sub { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.pos { color: var(--success); }
+.neg { color: var(--danger); }
+.warnv { color: var(--warn); }
 .note {
-  background: rgba(88, 166, 255, 0.1);
+  background: var(--bg-3);
   border-left: 3px solid var(--accent);
-  padding: 10px 16px;
-  margin: 12px 0;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: 0 6px 6px 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 12px;
 }
-.note.warn {
-  background: rgba(247, 129, 102, 0.1);
-  border-left-color: var(--orange);
-}
-
-@media (max-width: 640px) {
-  .container { padding: 16px 14px 80px; }
-  .grid-2 { grid-template-columns: 1fr; }
-  h1 { font-size: 24px; }
-  h2 { font-size: 18px; }
-  th, td { padding: 6px 8px; font-size: 13px; }
-}
+.note b { color: var(--text); }
+.opt { color: var(--accent-2); }
+.neu { color: var(--accent); }
+.con { color: var(--warn); }
+details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 </style>
 </head>
 <body>
-
-<nav class="nav">
-  <h2>🎯 退休 4,800 萬計畫</h2>
-  <div>
-    <a href="./monitor.html" style="margin-right: 6px;">📊 Monitor</a>
-    <a href="./">→ 試算器</a>
-  </div>
+<h1>退休計畫 — 動態現金流模型</h1>
+<p class="subtitle">逐月模擬流動淨資產、達標時點、LTV / margin call buffer 與 200MA 觸發衝擊。單位：萬元。</p>
+<nav>
+  <a href="index.html">淨資產試算</a>
+  <a href="plan.html" class="active">動態現金流</a>
+  <a href="monitor.html">監控</a>
 </nav>
 
-<div class="container">
+<!-- ============ 假設輸入 ============ -->
+<div class="card">
+  <h2>⚙️ 假設參數</h2>
+  <div class="grid2">
+    <div>
+      <h3>起始狀態（2026-05）</h3>
+      <div class="input-row"><label>投資部位</label><input id="p0" type="number" value="3853"></div>
+      <div class="input-row"><label>現金</label><input id="cash0" type="number" value="152"></div>
+      <div class="input-row"><label>信貸餘額</label><input id="credit0" type="number" value="287"></div>
+      <div class="input-row"><label>質押餘額</label><input id="pledge0" type="number" value="508"></div>
 
-<h1>退休 4,800 萬計畫 — Final 版</h1>
-<p style="color: var(--text-muted)">
-  最後更新: 2026-05-11 ｜ 起點: 2026.05 ｜ 目標達成: 2030 中 ｜ <strong>距離 4 年</strong>
+      <h3>年度收支</h3>
+      <div class="input-row"><label>稅後年收入</label><input id="income" type="number" value="260"></div>
+      <div class="input-row"><label>生活費 / 年</label><input id="living" type="number" value="120"></div>
+      <div class="input-row"><label>信貸還款 / 年</label><input id="creditPay" type="number" value="67"></div>
+      <div class="input-row"><label>車貸 / 年</label><input id="carPay" type="number" value="52"></div>
+      <div class="input-row"><label>A 房貸 / 年</label><input id="mortPay" type="number" value="55"></div>
+    </div>
+    <div>
+      <h3>投資報酬情境（年化，含 1.7x 槓桿 + drag）</h3>
+      <div class="input-row"><label>樂觀 %</label><input id="rOpt" type="number" value="16"></div>
+      <div class="input-row"><label>中性 %</label><input id="rNeu" type="number" value="12"></div>
+      <div class="input-row"><label>保守 %</label><input id="rCon" type="number" value="7"></div>
+
+      <h3>事件時間軸（YYYY-MM）</h3>
+      <div class="input-row"><label>賣 A 房注入</label><input id="sellAmt" type="number" value="350"></div>
+      <div class="input-row"><label>賣 A 房月份</label><input id="sellDate" type="month" value="2026-10"></div>
+      <div class="input-row"><label>工程款（總額）</label><input id="constrAmt" type="number" value="220"></div>
+      <div class="input-row"><label>工程款起／迄</label>
+        <span style="display:flex;gap:4px"><input id="constrStart" type="month" value="2026-06" style="width:80px"><input id="constrEnd" type="month" value="2028-12" style="width:80px"></span></div>
+      <div class="input-row"><label>交屋款</label><input id="closeAmt" type="number" value="185"></div>
+      <div class="input-row"><label>交屋月份</label><input id="closeDate" type="month" value="2028-06"></div>
+      <div class="input-row"><label>裝潢（達標後）</label><input id="renoAmt" type="number" value="250"></div>
+      <div class="input-row"><label>B 房 cash-out</label><input id="bCashout" type="number" value="2800"></div>
+      <div class="input-row"><label>信貸還清月份</label><input id="creditEnd" type="month" value="2030-12"></div>
+      <div class="input-row"><label>車貸還清月份</label><input id="carEnd" type="month" value="2033-12"></div>
+    </div>
+  </div>
+
+  <h3>達標目標與保證金</h3>
+  <div class="grid2">
+    <div>
+      <div class="input-row"><label>目標 A（流動淨資產）</label><input id="targetA" type="number" value="4800"></div>
+      <div class="input-row"><label>目標 A — SWR %</label><input id="swrA" type="number" value="4.25" step="0.05"></div>
+      <div class="input-row"><label>目標 B（流動淨資產）</label><input id="targetB" type="number" value="5000"></div>
+      <div class="input-row"><label>目標 B — SWR %</label><input id="swrB" type="number" value="4" step="0.05"></div>
+    </div>
+    <div>
+      <div class="input-row"><label>模擬年數</label><input id="years" type="number" value="14"></div>
+      <div class="input-row"><label>維持保證金 LTV 上限 %</label><input id="maintLtv" type="number" value="77"></div>
+      <div class="input-row muted tiny"><label>＝ 維持率 130% 約當 LTV 77%</label><span></span></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="runBtn">▶ 重新計算</button>
+    <button class="btn ghost" id="saveBtn">💾 儲存假設</button>
+    <button class="btn ghost" id="resetBtn">↺ 還原預設</button>
+  </div>
+  <div class="note">
+    <b>模型口徑：</b>車貸與 A 房貸本金不在起始負債（795＝信貸 287＋質押 508）內，故僅以「年度現金流」影響可投入結餘，不計入流動淨資產的負債項。
+    信貸本金隨還款線性攤銷至還清月份歸零；質押餘額視為槓桿融資、本金維持不變（利息已含於報酬 drag）。
+    工程款＋交屋款由「賣房＋借款」支應，此處保守地以流動資產淨流出處理（賣 A 房 +350 抵充大部分）。
+    <b>B 房交屋 cash-out 2800 自成一 balance、不計入流動淨資產</b>，僅於下方獨立列示。
+  </div>
+</div>
+
+<!-- ============ KPI 摘要 ============ -->
+<div class="card">
+  <h2>🎯 真實達標時點</h2>
+  <div id="kpiTargets"></div>
+  <div class="note" id="swrNote"></div>
+</div>
+
+<!-- ============ 逐月曲線 ============ -->
+<div class="card">
+  <h2>📈 逐月流動淨資產曲線</h2>
+  <div class="scenario-tabs" id="curveTabs">
+    <div class="tab active" data-mode="all">三情境</div>
+    <div class="tab" data-mode="opt">樂觀 16%</div>
+    <div class="tab" data-mode="neu">中性 12%</div>
+    <div class="tab" data-mode="con">保守 7%</div>
+  </div>
+  <div class="chart-wrap"><canvas id="curveChart" height="300"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#7ee787"></i>樂觀</span>
+    <span><i class="swatch" style="background:#58a6ff"></i>中性</span>
+    <span><i class="swatch" style="background:#f78166"></i>保守</span>
+    <span><i class="swatch" style="background:#3fb950;height:2px;border-top:2px dashed #3fb950;background:none"></i>目標 A</span>
+    <span><i class="swatch" style="background:#8b949e"></i>目標 B</span>
+  </div>
+</div>
+
+<!-- ============ 達標目標比較 ============ -->
+<div class="card">
+  <h2>⚖️ 達標目標 4,800 vs 5,000 對比</h2>
+  <table id="targetCmp"></table>
+  <div class="note tiny" id="targetCmpNote"></div>
+</div>
+
+<!-- ============ LTV / margin buffer ============ -->
+<div class="card">
+  <h2>🛡️ 各時點 LTV + Margin Call Buffer（中性情境）</h2>
+  <table id="ltvTable"></table>
+  <div class="note tiny">
+    LTV ＝ 質押餘額 ÷ 投資部位。Buffer ＝ 投資部位可再下跌幅度，跌破即觸發維持保證金（LTV 達上限）。
+    觸發跌幅 ＝ 1 − LTV ÷ 上限。
+  </div>
+</div>
+
+<!-- ============ 200MA 衝擊 ============ -->
+<div class="card">
+  <h2>🌊 200MA 觸發情境衝擊模擬</h2>
+  <p class="tiny muted" style="margin-top:0">
+    0050 連 3 日跌破 200MA → 出場至 30%；連 5 日站回 → 分 3 批進場。以下比較「有 200MA 濾網」與「buy &amp; hold」在一次回檔事件中的 portfolio 路徑與淨衝擊（以中性情境為基底）。
+  </p>
+  <div class="grid2">
+    <div>
+      <div class="input-row"><label>事件起始月份</label><input id="maTrigger" type="month" value="2027-06"></div>
+      <div class="input-row"><label>回檔深度 %</label><input id="maDepth" type="number" value="30"></div>
+      <div class="input-row"><label>下跌歷時（月）</label><input id="maFall" type="number" value="3"></div>
+    </div>
+    <div>
+      <div class="input-row"><label>觸發後曝險 %</label><input id="maExposure" type="number" value="30"></div>
+      <div class="input-row"><label>站回後復原（月）</label><input id="maRecover" type="number" value="4"></div>
+      <div class="input-row"><label>進場批數</label><input id="maBatches" type="number" value="3"></div>
+    </div>
+  </div>
+  <div class="chart-wrap" style="margin-top:8px"><canvas id="maChart" height="260"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#58a6ff"></i>有 200MA 濾網</span>
+    <span><i class="swatch" style="background:#f78166"></i>Buy &amp; Hold</span>
+  </div>
+  <div id="maKpi" style="margin-top:12px"></div>
+  <div class="note tiny">
+    濾網在跌破當月將曝險降至設定值（其餘部位視為現金、零報酬），於回檔末期偵測站回後分批回補。
+    <b>正衝擊</b>＝濾網避開的損失；<b>負衝擊</b>＝假訊號 / whipsaw 造成踏空的成本。可調整回檔深度觀察濾網的成本/效益翻轉點。
+  </div>
+</div>
+
+<p class="tiny muted" style="text-align:center;margin:24px 0">
+  本工具為個人財務試算，所有假設可調整；數字僅供規劃參考，非投資建議。
 </p>
 
-<div class="hero">
-  <div style="color: var(--text-muted); font-size: 14px;">退休門檻 (流動淨資產)</div>
-  <div class="target">4,800 萬 NTD</div>
-  <div class="sub">
-    退休後年缺口 ~240 萬 (4.5-5% 提領率) ｜ 配 200MA + 質押 + 720 萬現金 buffer = 95% 成功率
-  </div>
-</div>
+<script>
+"use strict";
+const SKEY = "retirement_plan_v1";
+const $ = id => document.getElementById(id);
 
-<h2>📊 起點 (2026.05)</h2>
+// ---- 輸入欄位清單 ----
+const FIELDS = ["p0","cash0","credit0","pledge0","income","living","creditPay","carPay","mortPay",
+  "rOpt","rNeu","rCon","sellAmt","sellDate","constrAmt","constrStart","constrEnd","closeAmt","closeDate",
+  "renoAmt","bCashout","creditEnd","carEnd","targetA","swrA","targetB","swrB","years","maintLtv",
+  "maTrigger","maDepth","maFall","maExposure","maRecover","maBatches"];
 
-<div class="grid-2">
-  <div class="card">
-    <div class="label">流動淨資產</div>
-    <div class="value" style="color: var(--accent)">2,972 萬</div>
-  </div>
-  <div class="card">
-    <div class="label">投資池 (含槓桿)</div>
-    <div class="value">3,512 萬</div>
-  </div>
-  <div class="card">
-    <div class="label">現金 (活 160 + 定 65)</div>
-    <div class="value">225 萬</div>
-  </div>
-  <div class="card">
-    <div class="label">質押 LTV (對 00631L + 00662)</div>
-    <div class="value">16.6% (478 萬)</div>
-  </div>
-</div>
+const DEFAULTS = {};
+FIELDS.forEach(f => { const el = $(f); if (el) DEFAULTS[f] = el.value; });
 
-<div class="note">
-<strong>💡 質押 LTV 計算說明</strong>: LTV 分母 只算 <strong>可質押 collateral 部位</strong> (00631L + 00662), 不是整體投資池。<br>
-目前 base = 2,802 (00631L) + 80 (00662 已建倉 12 張) = <strong>2,882 萬</strong><br>
-20% LTV 上限 = 576 萬 → 還可加 ~98 萬 質押<br>
-隨 00662 建倉完成, base 擴大到 ~3,272 萬, 20% cap 上看 654 萬
-</div>
+function num(id){ return parseFloat($(id).value) || 0; }
+function ymToIdx(ym){ // 相對 2026-05 的月份索引；2026-05 = 0
+  if(!ym) return -1;
+  const [y,m] = ym.split("-").map(Number);
+  return (y-2026)*12 + (m-5);
+}
+function idxToLabel(i){
+  const total = 5 + i; // base month May(5)
+  const y = 2026 + Math.floor((total-1)/12);
+  const m = ((total-1)%12)+1;
+  return y + "/" + String(m).padStart(2,"0");
+}
 
-<table>
-<thead><tr><th>負債項目</th><th class="num">餘額</th><th class="num">月繳</th><th>到期/處置</th></tr></thead>
-<tbody>
-<tr><td>連線銀行信貸</td><td class="num">119 萬</td><td class="num">5.6 (合計)</td><td>2030 末自然到期</td></tr>
-<tr><td>將來信貸</td><td class="num">167 萬</td><td class="num">↑</td><td>不主動清</td></tr>
-<tr><td>車貸 (2.88% / 7yr)</td><td class="num">330 萬</td><td class="num">4.34</td><td>2033 末自然到期</td></tr>
-<tr><td>質押 (群益 + 元大證金)</td><td class="num">478 萬</td><td class="num">~1 (利息)</td><td>動態管理</td></tr>
-<tr><td>舊房貸</td><td class="num">1,200 萬</td><td class="num">4.7</td><td>2026 Q4 賣房結清</td></tr>
-</tbody>
-</table>
+// ---- 讀參數 ----
+function readParams(){
+  return {
+    p0:num("p0"), cash0:num("cash0"), credit0:num("credit0"), pledge0:num("pledge0"),
+    income:num("income"), living:num("living"), creditPay:num("creditPay"),
+    carPay:num("carPay"), mortPay:num("mortPay"),
+    rOpt:num("rOpt")/100, rNeu:num("rNeu")/100, rCon:num("rCon")/100,
+    sellAmt:num("sellAmt"), sellIdx:ymToIdx($("sellDate").value),
+    constrAmt:num("constrAmt"), constrStart:ymToIdx($("constrStart").value), constrEnd:ymToIdx($("constrEnd").value),
+    closeAmt:num("closeAmt"), closeIdx:ymToIdx($("closeDate").value),
+    renoAmt:num("renoAmt"), bCashout:num("bCashout"),
+    creditEndIdx:ymToIdx($("creditEnd").value), carEndIdx:ymToIdx($("carEnd").value),
+    targetA:num("targetA"), swrA:num("swrA")/100, targetB:num("targetB"), swrB:num("swrB")/100,
+    months: Math.round(num("years")*12), maintLtv:num("maintLtv")/100
+  };
+}
 
-<h3>不動產</h3>
-<ul>
-  <li><strong>舊房</strong>: 林口區力行段 1019 ｜ 市價 1,700 萬 ｜ 持有 8 年 ｜ <span class="tag yellow">2026 Q4 賣</span></li>
-  <li><strong>新房</strong>: 3,600 萬預售屋 ｜ <span class="tag accent">2028 中交屋</span></li>
-</ul>
+// ---- 核心模擬：回傳逐月快照陣列 ----
+// annualR：年化報酬；target：用來決定「達標後裝潢」何時發生
+function simulate(P, annualR, target){
+  const rm = Math.pow(1+annualR, 1/12) - 1;
+  let p = P.p0;
+  let credit = P.credit0;
+  const cash = P.cash0;
+  const pledge = P.pledge0;
+  let mortgageOn = true;          // 賣 A 房前房貸持續
+  let renoDone = false;           // 裝潢只發生一次（達標後）
+  let targetHit = -1;
 
-<h3>投資組合配置 (2026.05)</h3>
-<table>
-<thead><tr><th>標的</th><th class="num">占比</th><th class="num">金額</th><th>說明</th></tr></thead>
-<tbody>
-<tr><td>元大台灣 50 正2 (00631L)</td><td class="num">75%</td><td class="num">2,802 萬</td><td>主力 2x 槓桿台50</td></tr>
-<tr><td>安聯台灣科技</td><td class="num">7%</td><td class="num">259 萬</td><td>主動型台股</td></tr>
-<tr><td>QLD (2x Nasdaq)</td><td class="num">6%</td><td class="num">212 萬</td><td>美科技, 計畫減持</td></tr>
-<tr><td>SSO (2x S&amp;P)</td><td class="num">3%</td><td class="num">114 萬</td><td>計畫全賣</td></tr>
-<tr><td>台指期</td><td class="num">2%</td><td class="num">83 萬</td><td>期貨曝險</td></tr>
-<tr><td>TQQQ (3x Nasdaq)</td><td class="num">1%</td><td class="num">21 萬</td><td>87 股保留</td></tr>
-<tr><td>00662 (Nasdaq ETF)</td><td class="num">新增</td><td class="num">建倉中 (12 張)</td><td>1.8x 自製槓桿 target</td></tr>
-<tr><td>Tesla</td><td class="num">1%</td><td class="num">20 萬</td><td>個股</td></tr>
-</tbody>
-</table>
+  // 工程款每月攤付
+  const constrMonths = Math.max(1, P.constrEnd - P.constrStart + 1);
+  const constrPerMonth = P.constrAmt / constrMonths;
+  // 信貸線性攤銷至還清月份
+  const creditMonths = Math.max(1, P.creditEndIdx + 1); // 從 0 起算
+  const creditPrin = P.credit0 / creditMonths;
 
-<h2>🎯 4 大戰術</h2>
-<ol>
-<li><strong>舊房 2026 Q3-Q4 賣出</strong> (持有 8.5 年, 申請土增稅自用一生一次)</li>
-<li><strong>質押 LTV 維持 20%</strong> (對 00631L + 00662 base, 累積期加速, 退休前降至 15%)</li>
-<li><strong>不清信貸 287</strong> (5.6% 利率 vs 12% 投資 = 賺 spread, 2030 自然到期)</li>
-<li><strong>退休前 1 年</strong> 降槓桿 + 啟動 200MA filter</li>
-</ol>
+  const out = [];
+  for(let i=0;i<=P.months;i++){
+    // --- 事件（在當月期初套用） ---
+    if(i === P.sellIdx){ p += P.sellAmt; mortgageOn = false; }
+    if(i >= P.constrStart && i <= P.constrEnd) p -= constrPerMonth;
+    if(i === P.closeIdx) p -= P.closeAmt;
 
-<h2>📈 年度流動目標</h2>
+    // --- 報酬（i>0 才複利一個月） ---
+    if(i>0) p *= (1+rm);
 
-<table>
-<thead><tr><th>年末</th><th class="num">流動目標</th><th>關鍵事件</th></tr></thead>
-<tbody>
-<tr><td>2026 末</td><td class="num">3,070 萬</td><td>賣舊房 +339, 質押升 20%</td></tr>
-<tr><td>2027 末</td><td class="num">3,300 萬</td><td>工程款 165, 解套雙重住房</td></tr>
-<tr><td>2028 末</td><td class="num">4,200 萬</td><td>🔥 新房交屋 + cash-out 2,800</td></tr>
-<tr><td>2029 末</td><td class="num">4,720 萬</td><td>信貸最後一年 (2029 末還清)</td></tr>
-<tr class="highlight"><td><strong>2030 中</strong></td><td class="num"><strong>4,800 萬</strong> 🎯</td><td><strong>退休啟動</strong></td></tr>
-<tr><td>2030 末</td><td class="num">5,300 萬</td><td>退休後緩衝</td></tr>
-</tbody>
-</table>
+    // --- 年度現金流 → 月結餘投入/提取 ---
+    if(i>0){
+      let monthly = (P.income - P.living)/12;
+      if(mortgageOn) monthly -= P.mortPay/12;
+      if(i <= P.carEndIdx) monthly -= P.carPay/12;
+      if(i <= P.creditEndIdx) monthly -= P.creditPay/12;
+      p += monthly;
+      // 信貸本金攤銷
+      if(i <= P.creditEndIdx && credit > 0) credit = Math.max(0, credit - creditPrin);
+      else if(i > P.creditEndIdx) credit = 0;
+    }
 
-<h2>📅 年度行動清單</h2>
+    let lna = p + cash - credit - pledge;
 
-<div class="year-block hot">
-<h3>2026 (今年, 緊急行動)</h3>
+    // --- 達標後裝潢（達標當月之後一個月套用，避免循環） ---
+    if(!renoDone && targetHit < 0 && lna >= target){
+      targetHit = i;
+    }
+    if(targetHit >= 0 && !renoDone && i === targetHit){
+      p -= P.renoAmt;
+      renoDone = true;
+      lna = p + cash - credit - pledge;
+    }
 
-<h4>Q2 (現在 - 6 月) 準備期</h4>
-<ul class="checkbox">
-<li>質押率 16.6% → 20% (478 → 576, 多借 ~98 萬 灌投資池) <br>
-  <span class="tag yellow">注意</span> LTV 分母只算 00631L + 00662 = 2,882 萬, 不是總投資池</li>
-<li>取得舊房 完整契約 + 取得費用單據</li>
-<li>約會計師諮詢 房地合一稅 + 土增稅試算</li>
-<li>2-3 家仲介估價 (target 1,700+, 議價仲介費 2%)</li>
-<li>00662 建倉 (持續到 60+ 張, 1.8x leverage)</li>
-<li>賣 SSO 全部 + QLD 部分 ($64.5k → 換 NTD → 00662)</li>
-</ul>
+    const ltv = p>0 ? pledge / p : 0;
+    out.push({ i, label:idxToLabel(i), p, credit, pledge, lna, ltv });
+  }
+  return { rows: out, targetHit };
+}
 
-<h4>Q3 (7-9 月) 上架</h4>
-<ul class="checkbox">
-<li>舊房委託專任約 (60-90 天)</li>
-<li>簡單清潔 / 修繕 (預算 3-5 萬)</li>
-<li>掛牌 1,750-1,780</li>
-</ul>
+function firstHit(rows, target){
+  for(const r of rows) if(r.lna >= target) return r;
+  return null;
+}
 
-<h4>Q4 (10-12 月) 成交</h4>
-<ul class="checkbox">
-<li>舊房成交 (target 1,700)</li>
-<li>申請土增稅自用一生一次 (省 30 萬)</li>
-<li>報繳房地合一稅 ~94 萬, 土增稅 ~30 萬</li>
-<li>淨入帳 ~339 萬 全進投資池</li>
-<li>立即終結雙重住房 (月省 4.7 萬!)</li>
-<li><strong>Q4 流動 ≥ 3,070</strong></li>
-</ul>
-</div>
+// ---- 繪圖工具（純 canvas，無外部相依） ----
+function setupCanvas(cv){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 860;
+  const h = parseInt(cv.getAttribute("height")) || 280;
+  cv.width = w*dpr; cv.height = h*dpr;
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { ctx, w, h };
+}
+function drawLineChart(cv, series, opts){
+  opts = opts || {};
+  const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0,0,w,h);
+  const padL=52, padR=12, padT=12, padB=24;
+  const allY = []; series.forEach(s => s.data.forEach(d => allY.push(d.y)));
+  (opts.hlines||[]).forEach(l => allY.push(l.y));
+  let minY = Math.min.apply(null, allY), maxY = Math.max.apply(null, allY);
+  if(opts.minY!=null) minY = Math.min(minY, opts.minY);
+  if(minY===maxY){ maxY+=1; minY-=1; }
+  const pad = (maxY-minY)*0.08; minY-=pad; maxY+=pad;
+  let minX=Infinity, maxX=-Infinity;
+  series.forEach(s=>s.data.forEach(d=>{ if(d.x<minX)minX=d.x; if(d.x>maxX)maxX=d.x; }));
+  if(minX===maxX) maxX=minX+1;
+  const X = x => padL + (x-minX)/(maxX-minX)*(w-padL-padR);
+  const Y = y => h-padB - (y-minY)/(maxY-minY)*(h-padT-padB);
 
-<div class="year-block">
-<h3>2027</h3>
-<ul class="checkbox">
-<li>工程款 165 (6-8 月) 已付準備</li>
-<li>沒舊房負擔, 月支出大降, 開始累積現金 buffer</li>
-<li>研究 Wealth Banking 多家 (2028 新房貸 預先 negotiate)</li>
-<li><strong>Q4 流動 ≥ 3,300</strong></li>
-</ul>
-</div>
+  // grid + y labels
+  ctx.font = "11px sans-serif"; ctx.textBaseline="middle";
+  ctx.strokeStyle = "#2a3340"; ctx.fillStyle = "#8b949e"; ctx.lineWidth=1;
+  const yticks=4;
+  for(let t=0;t<=yticks;t++){
+    const yv = minY + (maxY-minY)*t/yticks;
+    const yp = Y(yv);
+    ctx.beginPath(); ctx.moveTo(padL,yp); ctx.lineTo(w-padR,yp); ctx.stroke();
+    ctx.textAlign="right"; ctx.fillText(Math.round(yv).toLocaleString(), padL-6, yp);
+  }
+  // x labels (年)
+  ctx.textAlign="center"; ctx.textBaseline="top";
+  const xticks = opts.xLabels || [];
+  xticks.forEach(t=>{ ctx.fillText(t.label, X(t.x), h-padB+4); });
 
-<div class="year-block hot">
-<h3>2028 (新房年)</h3>
+  // horizontal target lines
+  (opts.hlines||[]).forEach(l=>{
+    ctx.strokeStyle=l.color; ctx.setLineDash([5,4]); ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(padL,Y(l.y)); ctx.lineTo(w-padR,Y(l.y)); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  // series
+  series.forEach(s=>{
+    ctx.strokeStyle=s.color; ctx.lineWidth= s.width||2; ctx.beginPath();
+    s.data.forEach((d,k)=>{ const px=X(d.x), py=Y(d.y); k?ctx.lineTo(px,py):ctx.moveTo(px,py); });
+    ctx.stroke();
+    if(s.markers) s.data.forEach(d=>{ if(d.mark){ ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(X(d.x),Y(d.y),3.5,0,7); ctx.fill(); } });
+  });
+}
 
-<h4>Q1 — 準備</h4>
-<ul class="checkbox">
-<li>工程款餘額 + 交屋款 (5% = 180 萬) 預先準備</li>
-<li>跟銀行接觸新房貸 pre-approval</li>
-</ul>
+function yearTicks(months){
+  const t=[];
+  for(let i=0;i<=months;i++){
+    const lbl=idxToLabel(i);
+    if(lbl.endsWith("/01") || i===0) t.push({x:i,label:lbl.split("/")[0]});
+  }
+  return t;
+}
 
-<h4>Q2 — 申請新房貸</h4>
-<ul class="checkbox">
-<li>DTI 計算: (5.6 + 4.34 + 7) / 23.3 = <strong>72.7%</strong> ⚠️</li>
-<li>Plan A: Wealth Banking 彈性過件 (不清信貸)</li>
-<li>Plan B (備案): 撥 287 清信貸, DTI 降至 48.7%</li>
-<li>申請新房貸 2,800 萬 (3% 只繳息)</li>
-</ul>
+// ---- 主流程 ----
+let curveCache = null;
+function run(){
+  const P = readParams();
+  const sims = {
+    opt: simulate(P, P.rOpt, P.targetA),
+    neu: simulate(P, P.rNeu, P.targetA),
+    con: simulate(P, P.rCon, P.targetA),
+  };
+  curveCache = { P, sims };
 
-<h4>Q3 — 交屋</h4>
-<ul class="checkbox">
-<li>新房交屋, 投資池抽 2,800 一次付清</li>
-<li>立即 cash-out 2,800 補回投資池</li>
-<li>質押 LTV 維持 20%</li>
-<li>設籍新房 + 健保地址變更</li>
-</ul>
+  renderKpis(P, sims);
+  renderCurve("all");
+  renderTargetCmp(P);
+  renderLtv(P, sims.neu);
+  runMa();
+}
 
-<h4>Q4 — 入住</h4>
-<ul class="checkbox">
-<li>裝潢 250 完成</li>
-<li><strong>流動 ≥ 4,200</strong></li>
-</ul>
-</div>
+function fmtHit(rows, target){
+  const r = firstHit(rows, target);
+  return r ? r.label : "未達標";
+}
 
-<div class="year-block">
-<h3>2029</h3>
-<ul class="checkbox">
-<li>享受 工程款 ended + 沒舊房貸 + 沒房租 的現金流改善</li>
-<li>質押率維持 20% (隨投資池成長同步加碼)</li>
-<li>累積 720 萬現金 buffer (退休前 1 年到位)</li>
-<li>2029 末 信貸自然還清 (月省 5.6 萬)</li>
-<li><strong>Q4 流動 ≥ 4,720</strong></li>
-</ul>
-</div>
+function renderKpis(P, sims){
+  const tgt = P.targetA;
+  const scen = [["樂觀 16%","opt","opt"],["中性 12%","neu","neu"],["保守 7%","con","con"]];
+  let html = '<div class="kpi-grid">';
+  scen.forEach(([name,key,cls])=>{
+    const hitA = firstHit(sims[key].rows, P.targetA);
+    const hitB = firstHit(sims[key].rows, P.targetB);
+    const end = sims[key].rows[sims[key].rows.length-1].lna;
+    html += `<div class="kpi">
+      <div class="k-label ${cls}">${name}</div>
+      <div class="k-value">${hitA?hitA.label:"未達標"}</div>
+      <div class="k-sub">達 ${P.targetA.toLocaleString()}（目標 A）</div>
+      <div class="k-sub">達 ${P.targetB.toLocaleString()}：<b>${hitB?hitB.label:"未達標"}</b></div>
+      <div class="k-sub">期末流動淨資產：${Math.round(end).toLocaleString()}</div>
+    </div>`;
+  });
+  html += '</div>';
+  $("kpiTargets").innerHTML = html;
 
-<div class="year-block goal">
-<h3>2030 — 退休啟動年 🎉</h3>
+  const incA = Math.round(P.targetA*P.swrA), incB = Math.round(P.targetB*P.swrB);
+  $("swrNote").innerHTML = `<b>SWR 對照：</b>目標 A ${P.targetA.toLocaleString()} × ${(P.swrA*100).toFixed(2)}% ＝ 年領 <b>${incA}</b> 萬；目標 B ${P.targetB.toLocaleString()} × ${(P.swrB*100).toFixed(2)}% ＝ 年領 <b>${incB}</b> 萬。生活費 ${P.living} 萬／年 → 兩目標皆覆蓋日常開銷（緩衝 A ${incA-P.living}、B ${incB-P.living} 萬）。`;
+}
 
-<h4>Q1-Q2 準備期</h4>
-<ul class="checkbox">
-<li>流動觸及 4,800 萬 🎯</li>
-<li>申請 Lombard credit line max out (退休前最後機會用薪水申請)</li>
-<li>申請房屋增貸額度 max out (僅申請額度, 不動用)</li>
-<li>投資組合 rebalance:
-  <pre>
-75% 00631L → 50% 00631L + 25% 00662 + 25% SSO/VTI
-砍掉 TQQQ / Tesla / 台指期 → 換 美股 ETF</pre>
-</li>
-<li>質押 LTV 降至 15% (退休安全位)</li>
-</ul>
+function renderCurve(mode){
+  if(!curveCache) return;
+  const { P, sims } = curveCache;
+  const mk = (rows,color,w) => ({ color, width:w||2, data: rows.map(r=>({x:r.i,y:r.lna})) });
+  let series=[];
+  if(mode==="all"){
+    series=[ mk(sims.opt.rows,"#7ee787"), mk(sims.neu.rows,"#58a6ff"), mk(sims.con.rows,"#f78166") ];
+  } else {
+    const c = mode==="opt"?"#7ee787":mode==="con"?"#f78166":"#58a6ff";
+    series=[ mk(sims[mode].rows,c,2.5) ];
+  }
+  drawLineChart($("curveChart"), series, {
+    hlines:[ {y:P.targetA,color:"#3fb950"}, {y:P.targetB,color:"#8b949e"} ],
+    xLabels: yearTicks(P.months), minY:0
+  });
+}
 
-<h4>Q3 啟動防禦</h4>
-<ul class="checkbox">
-<li><strong>啟動 200MA filter 規則</strong></li>
-<li>提領 720 萬到 MMF / 定存 (3 年 buffer)</li>
-<li>最終配置:
-  <pre>
-14% 現金        720 萬
-43% 00631L     2,150 萬
-21.5% 00662    1,075 萬
-21.5% SSO/VTI  1,075 萬</pre>
-</li>
-</ul>
+function renderTargetCmp(P){
+  const { sims } = curveCache;
+  const rows = [
+    ["達標目標","4,800（目標 A）","5,000（目標 B）"],
+    ["安全提領率 SWR", (P.swrA*100).toFixed(2)+"%", (P.swrB*100).toFixed(2)+"%"],
+    ["可年領（萬）", Math.round(P.targetA*P.swrA), Math.round(P.targetB*P.swrB)],
+    ["樂觀達標", fmtHit(sims.opt.rows,P.targetA), fmtHit(sims.opt.rows,P.targetB)],
+    ["中性達標", fmtHit(sims.neu.rows,P.targetA), fmtHit(sims.neu.rows,P.targetB)],
+    ["保守達標", fmtHit(sims.con.rows,P.targetA), fmtHit(sims.con.rows,P.targetB)],
+  ];
+  let h="";
+  rows.forEach((r,k)=>{ const tag=k===0?"th":"td"; h+=`<tr><${tag==="th"?"th":"td"}>${r[0]}</${tag==="th"?"th":"td"}><${tag}>${r[1]}</${tag}><${tag}>${r[2]}</${tag}></tr>`; });
+  $("targetCmp").innerHTML = h;
+  // 中性情境下兩目標時間差
+  const a=firstHit(sims.neu.rows,P.targetA), b=firstHit(sims.neu.rows,P.targetB);
+  let diff="—";
+  if(a&&b) diff = (b.i-a.i)+" 個月";
+  $("targetCmpNote").innerHTML = `中性情境下，從 4,800 → 5,000 約需額外 <b>${diff}</b>，換取年領金額差 ${Math.round(P.targetB*P.swrB)-Math.round(P.targetA*P.swrA)} 萬與更低提領率（更高安全邊際）。`;
+}
 
-<h4>Q4 退休 🎉</h4>
-<ul class="checkbox">
-<li>提離職 / 完成交接</li>
-<li>健保切換 (公會 / 配偶眷屬 / 國保)</li>
-<li>車貸繼續, 2033 末自然結清</li>
-<li><strong>退休啟動</strong> (3.5-4 年達成)</li>
-</ul>
-</div>
+function renderLtv(P, sim){
+  const rows = sim.rows;
+  const at = idx => rows.find(r=>r.i===idx) || rows[rows.length-1];
+  const hitA = firstHit(rows, P.targetA);
+  const pts = [
+    ["起始 (2026/05)", 0],
+    ["賣 A 房", P.sellIdx],
+    ["交屋", P.closeIdx],
+    ["B 房交屋 / cash-out", P.closeIdx],
+    ["信貸還清", P.creditEndIdx],
+    ["車貸還清", P.carEndIdx],
+    ["達標 (目標 A)", hitA?hitA.i:-1],
+  ];
+  let h = `<tr><th>時點</th><th>投資部位</th><th>質押</th><th>LTV</th><th>觸發跌幅 Buffer</th><th>B 房 balance</th></tr>`;
+  pts.forEach(([name,idx])=>{
+    if(idx<0 || idx>P.months){ h+=`<tr><td>${name}</td><td colspan="5" class="muted">—（未發生 / 超出區間）</td></tr>`; return; }
+    const r = at(idx);
+    const ltv = r.ltv;
+    const buf = 1 - ltv/P.maintLtv; // 投資部位可下跌幅度
+    const bufCls = buf>0.5?"pos":buf>0.25?"warnv":"neg";
+    const bnote = name.indexOf("B 房")>=0 ? `${P.bCashout.toLocaleString()}（不計流動）` : "—";
+    h += `<tr><td>${name}（${r.label}）</td><td>${Math.round(r.p).toLocaleString()}</td><td>${Math.round(r.pledge).toLocaleString()}</td><td>${(ltv*100).toFixed(1)}%</td><td class="${bufCls}">${(buf*100).toFixed(0)}%</td><td class="muted tiny">${bnote}</td></tr>`;
+  });
+  $("ltvTable").innerHTML = h;
+}
 
-<h2>💰 退休後動態用錢 SOP</h2>
+// ---- 200MA 衝擊 ----
+function runMa(){
+  if(!curveCache) return;
+  const P = curveCache.P;
+  const baseRows = curveCache.sims.neu.rows.map(r=>({...r}));
+  const rm = Math.pow(1+P.rNeu,1/12)-1;
 
-<p>核心原則: <strong>「200MA 決定資金來源, LTV 決定能借多少」</strong></p>
+  const trig = ymToIdx($("maTrigger").value);
+  const depth = num("maDepth")/100;
+  const fall = Math.max(1, num("maFall"));
+  const recover = Math.max(1, num("maRecover"));
+  const exposure = num("maExposure")/100;
+  const batches = Math.max(1, num("maBatches"));
 
-<h3>場景 A: 200MA 站上 (60-70% 時間)</h3>
-<pre>每月支出 ~20 萬 (年 240) 從哪來:
+  // 建立事件期間的市場「額外」月報酬（相對基準），用以建構回檔→復原
+  // 下跌段：每月 -depth/fall（線性）；復原段：把跌幅補回（線性）
+  const evLen = fall + recover;
+  function marketExtra(k){ // k = 事件內第幾個月 (0-based)
+    if(k < fall) return -depth/fall;
+    if(k < evLen) return depth/recover; // 復原把跌幅加回
+    return 0;
+  }
 
-  60% 質押 borrow (Lombard line) ← 主力
-       └── LTV 上限 20%, 利率 2.5% vs 投資 12% = 賺 9.5% spread
+  // 基準（neu）已含 rm；事件加上 marketExtra
+  // Buy & hold：全程曝險 100%
+  // Filter：跌破當月(trig)起曝險降至 exposure；站回(=fall結束)後分 batches 個月回補
+  const start = Math.max(1, trig);
+  const winStart = start;
+  const winEnd = Math.min(P.months, start + evLen + batches + 6);
 
-  30% 投資池配息 / 股息            ← 副
-       └── ETF 自然配息進帳
+  let pBH = baseRows[winStart-1] ? baseRows[winStart-1].p : P.p0;
+  let pF  = pBH;
+  const bh=[], fl=[];
+  // 記錄事件前一點
+  bh.push({x:winStart-1,y:pBH}); fl.push({x:winStart-1,y:pF});
 
-  10% 現金 buffer                  ← 緊急
+  for(let i=winStart;i<=winEnd;i++){
+    const k = i - start; // 事件內索引
+    const ext = (k>=0 && k<evLen) ? marketExtra(k) : 0;
+    // 月度淨流（與主模型一致的結餘投入，簡化僅用收支淨額）
+    let monthly = (P.income-P.living)/12;
+    if(i> P.sellIdx) {} else monthly -= P.mortPay/12;
+    if(i<=P.carEndIdx) monthly -= P.carPay/12;
+    if(i<=P.creditEndIdx) monthly -= P.creditPay/12;
 
-  ❌ 不做: 賣股票主部位</pre>
+    // Buy & Hold
+    pBH = pBH*(1+rm+ext) + monthly;
 
-<h3>場景 B: 200MA 跌破 (30-40% 時間)</h3>
-<pre>觸發瞬間 ⚡ 立即執行:
-  • 換 30% 持股 (00631L + 00662 各半) + 70% 現金
-  • 停止質押 borrow (LTV 已升)
+    // Filter 曝險
+    let exp = 1;
+    if(k>=0){
+      if(k < fall) exp = exposure;                 // 已出場
+      else {
+        const since = k - fall;                    // 站回後第幾個月
+        if(since < batches) exp = exposure + (1-exposure)*((since+1)/batches); // 分批回補
+        else exp = 1;
+      }
+    }
+    const effR = rm*exp + ext*exp; // 僅曝險部位承受市場；現金部位 0 報酬
+    pF = pF*(1+effR) + monthly;
 
-資金來源 (從上往下用):
-  70-80% 200MA 換倉生成的現金
-  20-30% 720 萬 buffer (第 2 道防線)
+    bh.push({x:i,y:pBH}); fl.push({x:i,y:pF});
+  }
 
-  ❌ 不做: 賣防禦部位 / 賣股 (等 200MA 站回)</pre>
+  drawLineChart($("maChart"), [
+    {color:"#58a6ff", width:2.5, data:fl},
+    {color:"#f78166", width:2, data:bh},
+  ], { xLabels: yearTicks(P.months).filter(t=>t.x>=winStart-1 && t.x<=winEnd) });
 
-<h3>場景 C: 大額支出 &gt; 100 萬</h3>
-<pre>Step 1: 看當下 LTV
-  LTV < 20%  → 純質押 borrow
-  LTV 20-25% → 一半質押 + 一半現金
-  LTV > 25%  → 純用 buffer (不再加槓桿)
+  const impact = pF - pBH;
+  const cls = impact>=0?"pos":"neg";
+  const sign = impact>=0?"+":"";
+  const verdict = impact>=0
+    ? `濾網在此回檔中<b>避開約 ${sign}${Math.round(impact)} 萬</b>損失（深度 ${(depth*100).toFixed(0)}% 夠大，出場有利）。`
+    : `此情境為假訊號 / whipsaw，濾網踏空成本 <b>${Math.round(impact)} 萬</b>（回檔太淺，出場反而吃虧）。`;
+  $("maKpi").innerHTML = `<div class="kpi-grid">
+    <div class="kpi"><div class="k-label">事件末 — 有濾網</div><div class="k-value">${Math.round(pF).toLocaleString()}</div></div>
+    <div class="kpi"><div class="k-label">事件末 — Buy &amp; Hold</div><div class="k-value">${Math.round(pBH).toLocaleString()}</div></div>
+    <div class="kpi"><div class="k-label">淨衝擊</div><div class="k-value ${cls}">${sign}${Math.round(impact).toLocaleString()} 萬</div><div class="k-sub">${(impact/pBH*100).toFixed(1)}%</div></div>
+  </div><div class="note tiny" style="margin-top:8px">${verdict}</div>`;
+}
 
-Step 2: 看 200MA 訊號
-  站上 → 主力質押 (lev up OK)
-  跌破 → 主力現金 (絕不再借)</pre>
+// ---- 儲存 / 載入 / 還原 ----
+function save(){
+  const o={}; FIELDS.forEach(f=>o[f]=$(f).value);
+  try{ localStorage.setItem(SKEY, JSON.stringify(o)); $("saveBtn").textContent="✓ 已儲存"; setTimeout(()=>$("saveBtn").textContent="💾 儲存假設",1500); }catch(e){}
+}
+function load(){
+  try{
+    const o=JSON.parse(localStorage.getItem(SKEY)||"null");
+    if(o) FIELDS.forEach(f=>{ if(o[f]!=null && $(f)) $(f).value=o[f]; });
+  }catch(e){}
+}
+function reset(){ FIELDS.forEach(f=>{ if($(f)) $(f).value=DEFAULTS[f]; }); run(); }
 
-<h2>🚨 LTV 警戒分級</h2>
+// ---- 事件綁定 ----
+$("runBtn").onclick = run;
+$("saveBtn").onclick = save;
+$("resetBtn").onclick = reset;
+FIELDS.forEach(f=>{ const el=$(f); if(el) el.addEventListener("change", run); });
+document.querySelectorAll("#curveTabs .tab").forEach(t=>{
+  t.onclick = () => {
+    document.querySelectorAll("#curveTabs .tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    renderCurve(t.dataset.mode);
+  };
+});
+window.addEventListener("resize", ()=>{ if(curveCache){ const active=document.querySelector("#curveTabs .tab.active"); renderCurve(active?active.dataset.mode:"all"); runMa(); } });
 
-<p style="color: var(--text-muted); font-size: 13px;">LTV = 質押金額 ÷ (00631L + 00662 市值合計)</p>
-
-<table>
-<thead><tr><th>LTV 區間</th><th>狀態</th><th>動作</th></tr></thead>
-<tbody>
-<tr><td>&lt; 15%</td><td><span class="tag green">寬鬆</span></td><td>可加碼</td></tr>
-<tr><td>15-20%</td><td><span class="tag green">正常</span></td><td>維持, 每季 review</td></tr>
-<tr><td>20-25%</td><td><span class="tag yellow">警戒</span></td><td>停止新增質押</td></tr>
-<tr><td>25-30%</td><td><span class="tag orange">高風險</span></td><td><strong>立刻減倉降回 20%</strong></td></tr>
-<tr><td>30-35%</td><td><span class="tag red">危險</span></td><td>緊急減倉, 不再借</td></tr>
-<tr><td>&gt; 35%</td><td><span class="tag red">紅線</span></td><td>補保證金 / 強制砍倉前</td></tr>
-</tbody>
-</table>
-
-<h2>⚠️ 警戒紅線 (任一觸發必須動作)</h2>
-
-<table>
-<thead><tr><th>訊號</th><th>動作</th></tr></thead>
-<tbody>
-<tr><td>流動 &lt; 4,500</td><td>兼職重返職場 1 年</td></tr>
-<tr><td>LTV &gt; 25%</td><td>立刻減倉降回 20%</td></tr>
-<tr><td>LTV &gt; 35%</td><td>緊急減倉, 補保證金</td></tr>
-<tr><td>200MA 跌破</td><td>切換場景 B</td></tr>
-<tr><td>連 2 年熊市 -20%</td><td>暫停提領, 動 buffer</td></tr>
-<tr><td>重大支出 &gt; 50 萬</td><td>走場景 C SOP</td></tr>
-</tbody>
-</table>
-
-<h2>📈 退休後資產成長預估</h2>
-
-<pre>保守估算 (報酬率 10%, 提領率 5%):
-  投資 12% 報酬 - 5% 提領 - 0.5% 質押息 = 6.5% 淨成長
-
-10 年後 (2040): 流動 ≈ 9,000 萬
-20 年後 (2050): 流動 ≈ 17,000+ 萬
-
-→ 越退越富 = 真正的 FU money 狀態 🚀</pre>
-
-<h2>📋 進度追蹤</h2>
-
-<table>
-<thead><tr><th>時點</th><th class="num">流動目標</th><th class="num">實際</th><th>備註</th></tr></thead>
-<tbody>
-<tr><td>2026 Q3</td><td>—</td><td></td><td>上架賣房</td></tr>
-<tr><td>2026 Q4</td><td class="num">3,070</td><td></td><td>賣房入帳後</td></tr>
-<tr><td>2027 Q4</td><td class="num">3,300</td><td></td><td></td></tr>
-<tr><td>2028 Q2</td><td class="num">4,000</td><td></td><td>新房交屋前</td></tr>
-<tr><td>2028 Q4</td><td class="num">4,200</td><td></td><td>cash-out 後</td></tr>
-<tr><td>2029 Q4</td><td class="num">4,720</td><td></td><td>信貸還清前</td></tr>
-<tr class="highlight"><td><strong>2030 Q2</strong></td><td class="num"><strong>4,800 🎯</strong></td><td></td><td><strong>退休門檻</strong></td></tr>
-</tbody>
-</table>
-
-<h2>🆘 緊急應變 SOP</h2>
-
-<h3>場景 1: 退休前突發失業</h3>
-<ul>
-<li>動用 Lombard credit (~700-800 萬額度)</li>
-<li>繼續履行計畫, 不要賣股</li>
-<li>補上 6-12 個月再退休</li>
-</ul>
-
-<h3>場景 2: 退休後 1-2 年遇大熊市</h3>
-<ul>
-<li>200MA 已自動切換場景 B</li>
-<li>用換倉現金 + 720 萬 buffer</li>
-<li>配偶兼職 / 副業補貼</li>
-</ul>
-
-<h3>場景 3: 退休後 5 年內 -50% 級熊市</h3>
-<ul>
-<li>Cash buffer 撐 3 年</li>
-<li>不夠 → 賣新房, 搬小一點 (新房 equity ~1,000+ 萬)</li>
-<li>最壞 → 兼職重返</li>
-</ul>
-
-<h2>🎯 一句話 Summary</h2>
-
-<div class="note">
-2026 Q3-Q4 賣舊房 → 339 萬進投資池<br>
-質押 20% 加速複利 + 信貸不清 留複利<br>
-2028 中新房交屋 + cash-out 2,800<br>
-2029 末流動 4,800 達標<br>
-2030 中啟動退休 (3.5-4 年後)<br>
-<br>
-退休後動態用錢, 配 200MA filter<br>
-資產 10 年翻倍 → 越退越富 🚀
-</div>
-
-<h2>📌 本週要做 3 件事</h2>
-<ol>
-<li><strong>約會計師</strong> — 房地合一稅 + 土增稅自用一生一次 試算</li>
-<li><strong>約仲介估價</strong> — 2-3 家比較, 議價仲介費 2%</li>
-<li><strong>質押升 20%</strong> — 478 → 765, 多借 287 灌投資池</li>
-</ol>
-
-<hr style="border: none; border-top: 1px solid var(--border); margin: 40px 0;">
-
-<p style="text-align: center; color: var(--text-dim); font-size: 13px;">
-最後更新: 2026-05-11 ｜ 下次 review: 2026 Q3 (上架賣房) ｜ 最終目標: 2030 中流動 4,800 萬<br>
-<a href="./" style="color: var(--accent); text-decoration: none;">→ 開啟試算器</a>
-</p>
-
-</div>
+load();
+run();
+</script>
 </body>
 </html>
