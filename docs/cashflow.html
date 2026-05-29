@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>退休計畫 — 動態現金流模型</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #1f2630;
+  --border: #2a3340;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-2: #7ee787;
+  --warn: #f78166;
+  --danger: #f85149;
+  --success: #3fb950;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+h1 { font-size: 20px; margin: 0 0 4px; }
+.subtitle { color: var(--text-muted); margin: 0 0 16px; font-size: 13px; }
+nav { display: flex; gap: 12px; margin: 0 0 16px; font-size: 13px; }
+nav a { color: var(--accent); text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+nav a.active { color: var(--text); font-weight: 600; }
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
+.card h3 { font-size: 13px; color: var(--text-muted); margin: 16px 0 8px; font-weight: 600; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+@media (max-width: 620px) { .grid2 { grid-template-columns: 1fr; } }
+.input-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.input-row label { color: var(--text-muted); flex: 1; min-width: 0; }
+.input-row input, .input-row select {
+  width: 110px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text);
+  text-align: right;
+}
+.btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover { opacity: 0.9; }
+.btn.ghost { background: var(--bg-3); color: var(--text); border: 1px solid var(--border); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.muted { color: var(--text-muted); }
+.tiny { font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-muted); font-weight: 600; }
+.scenario-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.tab {
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+}
+.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chart-wrap { position: relative; overflow-x: auto; }
+canvas { display: block; width: 100%; max-width: 100%; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 620px) { .kpi-grid { grid-template-columns: 1fr; } }
+.kpi {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.kpi .k-label { color: var(--text-muted); font-size: 12px; }
+.kpi .k-value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.kpi .k-sub { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.pos { color: var(--success); }
+.neg { color: var(--danger); }
+.warnv { color: var(--warn); }
+.note {
+  background: var(--bg-3);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+.note b { color: var(--text); }
+.opt { color: var(--accent-2); }
+.neu { color: var(--accent); }
+.con { color: var(--warn); }
+details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1>退休計畫 — 動態現金流模型</h1>
+<p class="subtitle">逐月模擬流動淨資產、達標時點、LTV / margin call buffer 與 200MA 觸發衝擊。單位：萬元。</p>
+<nav>
+  <a href="index.html">淨資產試算</a>
+  <a href="plan.html">計畫</a>
+  <a href="cashflow.html" class="active">動態現金流</a>
+  <a href="monitor.html">監控</a>
+</nav>
+
+<!-- ============ 假設輸入 ============ -->
+<div class="card">
+  <h2>⚙️ 假設參數</h2>
+  <div class="grid2">
+    <div>
+      <h3>起始狀態（2026-05）</h3>
+      <div class="input-row"><label>投資部位</label><input id="p0" type="number" value="3853"></div>
+      <div class="input-row"><label>現金</label><input id="cash0" type="number" value="152"></div>
+      <div class="input-row"><label>信貸餘額</label><input id="credit0" type="number" value="287"></div>
+      <div class="input-row"><label>質押餘額</label><input id="pledge0" type="number" value="508"></div>
+
+      <h3>年度收支</h3>
+      <div class="input-row"><label>稅後年收入</label><input id="income" type="number" value="260"></div>
+      <div class="input-row"><label>生活費 / 年</label><input id="living" type="number" value="120"></div>
+      <div class="input-row"><label>信貸還款 / 年</label><input id="creditPay" type="number" value="67"></div>
+      <div class="input-row"><label>車貸 / 年</label><input id="carPay" type="number" value="52"></div>
+      <div class="input-row"><label>A 房貸 / 年</label><input id="mortPay" type="number" value="55"></div>
+    </div>
+    <div>
+      <h3>投資報酬情境（年化，含 1.7x 槓桿 + drag）</h3>
+      <div class="input-row"><label>樂觀 %</label><input id="rOpt" type="number" value="16"></div>
+      <div class="input-row"><label>中性 %</label><input id="rNeu" type="number" value="12"></div>
+      <div class="input-row"><label>保守 %</label><input id="rCon" type="number" value="7"></div>
+
+      <h3>事件時間軸（YYYY-MM）</h3>
+      <div class="input-row"><label>賣 A 房注入</label><input id="sellAmt" type="number" value="350"></div>
+      <div class="input-row"><label>賣 A 房月份</label><input id="sellDate" type="month" value="2026-10"></div>
+      <div class="input-row"><label>工程款（總額）</label><input id="constrAmt" type="number" value="220"></div>
+      <div class="input-row"><label>工程款起／迄</label>
+        <span style="display:flex;gap:4px"><input id="constrStart" type="month" value="2026-06" style="width:80px"><input id="constrEnd" type="month" value="2028-12" style="width:80px"></span></div>
+      <div class="input-row"><label>交屋款</label><input id="closeAmt" type="number" value="185"></div>
+      <div class="input-row"><label>交屋月份</label><input id="closeDate" type="month" value="2028-06"></div>
+      <div class="input-row"><label>裝潢（達標後）</label><input id="renoAmt" type="number" value="250"></div>
+      <div class="input-row"><label>B 房 cash-out</label><input id="bCashout" type="number" value="2800"></div>
+      <div class="input-row"><label>信貸還清月份</label><input id="creditEnd" type="month" value="2030-12"></div>
+      <div class="input-row"><label>車貸還清月份</label><input id="carEnd" type="month" value="2033-12"></div>
+    </div>
+  </div>
+
+  <h3>達標目標與保證金</h3>
+  <div class="grid2">
+    <div>
+      <div class="input-row"><label>目標 A（流動淨資產）</label><input id="targetA" type="number" value="4800"></div>
+      <div class="input-row"><label>目標 A — SWR %</label><input id="swrA" type="number" value="4.25" step="0.05"></div>
+      <div class="input-row"><label>目標 B（流動淨資產）</label><input id="targetB" type="number" value="5000"></div>
+      <div class="input-row"><label>目標 B — SWR %</label><input id="swrB" type="number" value="4" step="0.05"></div>
+    </div>
+    <div>
+      <div class="input-row"><label>模擬年數</label><input id="years" type="number" value="14"></div>
+      <div class="input-row"><label>維持保證金 LTV 上限 %</label><input id="maintLtv" type="number" value="77"></div>
+      <div class="input-row muted tiny"><label>＝ 維持率 130% 約當 LTV 77%</label><span></span></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="runBtn">▶ 重新計算</button>
+    <button class="btn ghost" id="saveBtn">💾 儲存假設</button>
+    <button class="btn ghost" id="resetBtn">↺ 還原預設</button>
+  </div>
+  <div class="note">
+    <b>模型口徑：</b>車貸與 A 房貸本金不在起始負債（795＝信貸 287＋質押 508）內，故僅以「年度現金流」影響可投入結餘，不計入流動淨資產的負債項。
+    信貸本金隨還款線性攤銷至還清月份歸零；質押餘額視為槓桿融資、本金維持不變（利息已含於報酬 drag）。
+    工程款＋交屋款由「賣房＋借款」支應，此處保守地以流動資產淨流出處理（賣 A 房 +350 抵充大部分）。
+    <b>B 房交屋 cash-out 2800 自成一 balance、不計入流動淨資產</b>，僅於下方獨立列示。
+  </div>
+</div>
+
+<!-- ============ KPI 摘要 ============ -->
+<div class="card">
+  <h2>🎯 真實達標時點</h2>
+  <div id="kpiTargets"></div>
+  <div class="note" id="swrNote"></div>
+</div>
+
+<!-- ============ 逐月曲線 ============ -->
+<div class="card">
+  <h2>📈 逐月流動淨資產曲線</h2>
+  <div class="scenario-tabs" id="curveTabs">
+    <div class="tab active" data-mode="all">三情境</div>
+    <div class="tab" data-mode="opt">樂觀 16%</div>
+    <div class="tab" data-mode="neu">中性 12%</div>
+    <div class="tab" data-mode="con">保守 7%</div>
+  </div>
+  <div class="chart-wrap"><canvas id="curveChart" height="300"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#7ee787"></i>樂觀</span>
+    <span><i class="swatch" style="background:#58a6ff"></i>中性</span>
+    <span><i class="swatch" style="background:#f78166"></i>保守</span>
+    <span><i class="swatch" style="background:#3fb950;height:2px;border-top:2px dashed #3fb950;background:none"></i>目標 A</span>
+    <span><i class="swatch" style="background:#8b949e"></i>目標 B</span>
+  </div>
+</div>
+
+<!-- ============ 達標目標比較 ============ -->
+<div class="card">
+  <h2>⚖️ 達標目標 4,800 vs 5,000 對比</h2>
+  <table id="targetCmp"></table>
+  <div class="note tiny" id="targetCmpNote"></div>
+</div>
+
+<!-- ============ LTV / margin buffer ============ -->
+<div class="card">
+  <h2>🛡️ 各時點 LTV + Margin Call Buffer（中性情境）</h2>
+  <table id="ltvTable"></table>
+  <div class="note tiny">
+    LTV ＝ 質押餘額 ÷ 投資部位。Buffer ＝ 投資部位可再下跌幅度，跌破即觸發維持保證金（LTV 達上限）。
+    觸發跌幅 ＝ 1 − LTV ÷ 上限。
+  </div>
+</div>
+
+<!-- ============ 200MA 衝擊 ============ -->
+<div class="card">
+  <h2>🌊 200MA 觸發情境衝擊模擬</h2>
+  <p class="tiny muted" style="margin-top:0">
+    0050 連 3 日跌破 200MA → 出場至 30%；連 5 日站回 → 分 3 批進場。以下比較「有 200MA 濾網」與「buy &amp; hold」在一次回檔事件中的 portfolio 路徑與淨衝擊（以中性情境為基底）。
+  </p>
+  <div class="grid2">
+    <div>
+      <div class="input-row"><label>事件起始月份</label><input id="maTrigger" type="month" value="2027-06"></div>
+      <div class="input-row"><label>回檔深度 %</label><input id="maDepth" type="number" value="30"></div>
+      <div class="input-row"><label>下跌歷時（月）</label><input id="maFall" type="number" value="3"></div>
+    </div>
+    <div>
+      <div class="input-row"><label>觸發後曝險 %</label><input id="maExposure" type="number" value="30"></div>
+      <div class="input-row"><label>站回後復原（月）</label><input id="maRecover" type="number" value="4"></div>
+      <div class="input-row"><label>進場批數</label><input id="maBatches" type="number" value="3"></div>
+    </div>
+  </div>
+  <div class="chart-wrap" style="margin-top:8px"><canvas id="maChart" height="260"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#58a6ff"></i>有 200MA 濾網</span>
+    <span><i class="swatch" style="background:#f78166"></i>Buy &amp; Hold</span>
+  </div>
+  <div id="maKpi" style="margin-top:12px"></div>
+  <div class="note tiny">
+    濾網在跌破當月將曝險降至設定值（其餘部位視為現金、零報酬），於回檔末期偵測站回後分批回補。
+    <b>正衝擊</b>＝濾網避開的損失；<b>負衝擊</b>＝假訊號 / whipsaw 造成踏空的成本。可調整回檔深度觀察濾網的成本/效益翻轉點。
+  </div>
+</div>
+
+<p class="tiny muted" style="text-align:center;margin:24px 0">
+  本工具為個人財務試算，所有假設可調整；數字僅供規劃參考，非投資建議。
+</p>
+
+<script>
+"use strict";
+const SKEY = "retirement_plan_v1";
+const $ = id => document.getElementById(id);
+
+// ---- 輸入欄位清單 ----
+const FIELDS = ["p0","cash0","credit0","pledge0","income","living","creditPay","carPay","mortPay",
+  "rOpt","rNeu","rCon","sellAmt","sellDate","constrAmt","constrStart","constrEnd","closeAmt","closeDate",
+  "renoAmt","bCashout","creditEnd","carEnd","targetA","swrA","targetB","swrB","years","maintLtv",
+  "maTrigger","maDepth","maFall","maExposure","maRecover","maBatches"];
+
+const DEFAULTS = {};
+FIELDS.forEach(f => { const el = $(f); if (el) DEFAULTS[f] = el.value; });
+
+function num(id){ return parseFloat($(id).value) || 0; }
+function ymToIdx(ym){ // 相對 2026-05 的月份索引；2026-05 = 0
+  if(!ym) return -1;
+  const [y,m] = ym.split("-").map(Number);
+  return (y-2026)*12 + (m-5);
+}
+function idxToLabel(i){
+  const total = 5 + i; // base month May(5)
+  const y = 2026 + Math.floor((total-1)/12);
+  const m = ((total-1)%12)+1;
+  return y + "/" + String(m).padStart(2,"0");
+}
+
+// ---- 讀參數 ----
+function readParams(){
+  return {
+    p0:num("p0"), cash0:num("cash0"), credit0:num("credit0"), pledge0:num("pledge0"),
+    income:num("income"), living:num("living"), creditPay:num("creditPay"),
+    carPay:num("carPay"), mortPay:num("mortPay"),
+    rOpt:num("rOpt")/100, rNeu:num("rNeu")/100, rCon:num("rCon")/100,
+    sellAmt:num("sellAmt"), sellIdx:ymToIdx($("sellDate").value),
+    constrAmt:num("constrAmt"), constrStart:ymToIdx($("constrStart").value), constrEnd:ymToIdx($("constrEnd").value),
+    closeAmt:num("closeAmt"), closeIdx:ymToIdx($("closeDate").value),
+    renoAmt:num("renoAmt"), bCashout:num("bCashout"),
+    creditEndIdx:ymToIdx($("creditEnd").value), carEndIdx:ymToIdx($("carEnd").value),
+    targetA:num("targetA"), swrA:num("swrA")/100, targetB:num("targetB"), swrB:num("swrB")/100,
+    months: Math.round(num("years")*12), maintLtv:num("maintLtv")/100
+  };
+}
+
+// ---- 核心模擬：回傳逐月快照陣列 ----
+// annualR：年化報酬；target：用來決定「達標後裝潢」何時發生
+function simulate(P, annualR, target){
+  const rm = Math.pow(1+annualR, 1/12) - 1;
+  let p = P.p0;
+  let credit = P.credit0;
+  const cash = P.cash0;
+  const pledge = P.pledge0;
+  let mortgageOn = true;          // 賣 A 房前房貸持續
+  let renoDone = false;           // 裝潢只發生一次（達標後）
+  let targetHit = -1;
+
+  // 工程款每月攤付
+  const constrMonths = Math.max(1, P.constrEnd - P.constrStart + 1);
+  const constrPerMonth = P.constrAmt / constrMonths;
+  // 信貸線性攤銷至還清月份
+  const creditMonths = Math.max(1, P.creditEndIdx + 1); // 從 0 起算
+  const creditPrin = P.credit0 / creditMonths;
+
+  const out = [];
+  for(let i=0;i<=P.months;i++){
+    // --- 事件（在當月期初套用） ---
+    if(i === P.sellIdx){ p += P.sellAmt; mortgageOn = false; }
+    if(i >= P.constrStart && i <= P.constrEnd) p -= constrPerMonth;
+    if(i === P.closeIdx) p -= P.closeAmt;
+
+    // --- 報酬（i>0 才複利一個月） ---
+    if(i>0) p *= (1+rm);
+
+    // --- 年度現金流 → 月結餘投入/提取 ---
+    if(i>0){
+      let monthly = (P.income - P.living)/12;
+      if(mortgageOn) monthly -= P.mortPay/12;
+      if(i <= P.carEndIdx) monthly -= P.carPay/12;
+      if(i <= P.creditEndIdx) monthly -= P.creditPay/12;
+      p += monthly;
+      // 信貸本金攤銷
+      if(i <= P.creditEndIdx && credit > 0) credit = Math.max(0, credit - creditPrin);
+      else if(i > P.creditEndIdx) credit = 0;
+    }
+
+    let lna = p + cash - credit - pledge;
+
+    // --- 達標後裝潢（達標當月之後一個月套用，避免循環） ---
+    if(!renoDone && targetHit < 0 && lna >= target){
+      targetHit = i;
+    }
+    if(targetHit >= 0 && !renoDone && i === targetHit){
+      p -= P.renoAmt;
+      renoDone = true;
+      lna = p + cash - credit - pledge;
+    }
+
+    const ltv = p>0 ? pledge / p : 0;
+    out.push({ i, label:idxToLabel(i), p, credit, pledge, lna, ltv });
+  }
+  return { rows: out, targetHit };
+}
+
+function firstHit(rows, target){
+  for(const r of rows) if(r.lna >= target) return r;
+  return null;
+}
+
+// ---- 繪圖工具（純 canvas，無外部相依） ----
+function setupCanvas(cv){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 860;
+  const h = parseInt(cv.getAttribute("height")) || 280;
+  cv.width = w*dpr; cv.height = h*dpr;
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { ctx, w, h };
+}
+function drawLineChart(cv, series, opts){
+  opts = opts || {};
+  const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0,0,w,h);
+  const padL=52, padR=12, padT=12, padB=24;
+  const allY = []; series.forEach(s => s.data.forEach(d => allY.push(d.y)));
+  (opts.hlines||[]).forEach(l => allY.push(l.y));
+  let minY = Math.min.apply(null, allY), maxY = Math.max.apply(null, allY);
+  if(opts.minY!=null) minY = Math.min(minY, opts.minY);
+  if(minY===maxY){ maxY+=1; minY-=1; }
+  const pad = (maxY-minY)*0.08; minY-=pad; maxY+=pad;
+  let minX=Infinity, maxX=-Infinity;
+  series.forEach(s=>s.data.forEach(d=>{ if(d.x<minX)minX=d.x; if(d.x>maxX)maxX=d.x; }));
+  if(minX===maxX) maxX=minX+1;
+  const X = x => padL + (x-minX)/(maxX-minX)*(w-padL-padR);
+  const Y = y => h-padB - (y-minY)/(maxY-minY)*(h-padT-padB);
+
+  // grid + y labels
+  ctx.font = "11px sans-serif"; ctx.textBaseline="middle";
+  ctx.strokeStyle = "#2a3340"; ctx.fillStyle = "#8b949e"; ctx.lineWidth=1;
+  const yticks=4;
+  for(let t=0;t<=yticks;t++){
+    const yv = minY + (maxY-minY)*t/yticks;
+    const yp = Y(yv);
+    ctx.beginPath(); ctx.moveTo(padL,yp); ctx.lineTo(w-padR,yp); ctx.stroke();
+    ctx.textAlign="right"; ctx.fillText(Math.round(yv).toLocaleString(), padL-6, yp);
+  }
+  // x labels (年)
+  ctx.textAlign="center"; ctx.textBaseline="top";
+  const xticks = opts.xLabels || [];
+  xticks.forEach(t=>{ ctx.fillText(t.label, X(t.x), h-padB+4); });
+
+  // horizontal target lines
+  (opts.hlines||[]).forEach(l=>{
+    ctx.strokeStyle=l.color; ctx.setLineDash([5,4]); ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(padL,Y(l.y)); ctx.lineTo(w-padR,Y(l.y)); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  // series
+  series.forEach(s=>{
+    ctx.strokeStyle=s.color; ctx.lineWidth= s.width||2; ctx.beginPath();
+    s.data.forEach((d,k)=>{ const px=X(d.x), py=Y(d.y); k?ctx.lineTo(px,py):ctx.moveTo(px,py); });
+    ctx.stroke();
+    if(s.markers) s.data.forEach(d=>{ if(d.mark){ ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(X(d.x),Y(d.y),3.5,0,7); ctx.fill(); } });
+  });
+}
+
+function yearTicks(months){
+  const t=[];
+  for(let i=0;i<=months;i++){
+    const lbl=idxToLabel(i);
+    if(lbl.endsWith("/01") || i===0) t.push({x:i,label:lbl.split("/")[0]});
+  }
+  return t;
+}
+
+// ---- 主流程 ----
+let curveCache = null;
+function run(){
+  const P = readParams();
+  const sims = {
+    opt: simulate(P, P.rOpt, P.targetA),
+    neu: simulate(P, P.rNeu, P.targetA),
+    con: simulate(P, P.rCon, P.targetA),
+  };
+  curveCache = { P, sims };
+
+  renderKpis(P, sims);
+  renderCurve("all");
+  renderTargetCmp(P);
+  renderLtv(P, sims.neu);
+  runMa();
+}
+
+function fmtHit(rows, target){
+  const r = firstHit(rows, target);
+  return r ? r.label : "未達標";
+}
+
+function renderKpis(P, sims){
+  const tgt = P.targetA;
+  const scen = [["樂觀 16%","opt","opt"],["中性 12%","neu","neu"],["保守 7%","con","con"]];
+  let html = '<div class="kpi-grid">';
+  scen.forEach(([name,key,cls])=>{
+    const hitA = firstHit(sims[key].rows, P.targetA);
+    const hitB = firstHit(sims[key].rows, P.targetB);
+    const end = sims[key].rows[sims[key].rows.length-1].lna;
+    html += `<div class="kpi">
+      <div class="k-label ${cls}">${name}</div>
+      <div class="k-value">${hitA?hitA.label:"未達標"}</div>
+      <div class="k-sub">達 ${P.targetA.toLocaleString()}（目標 A）</div>
+      <div class="k-sub">達 ${P.targetB.toLocaleString()}：<b>${hitB?hitB.label:"未達標"}</b></div>
+      <div class="k-sub">期末流動淨資產：${Math.round(end).toLocaleString()}</div>
+    </div>`;
+  });
+  html += '</div>';
+  $("kpiTargets").innerHTML = html;
+
+  const incA = Math.round(P.targetA*P.swrA), incB = Math.round(P.targetB*P.swrB);
+  $("swrNote").innerHTML = `<b>SWR 對照：</b>目標 A ${P.targetA.toLocaleString()} × ${(P.swrA*100).toFixed(2)}% ＝ 年領 <b>${incA}</b> 萬；目標 B ${P.targetB.toLocaleString()} × ${(P.swrB*100).toFixed(2)}% ＝ 年領 <b>${incB}</b> 萬。生活費 ${P.living} 萬／年 → 兩目標皆覆蓋日常開銷（緩衝 A ${incA-P.living}、B ${incB-P.living} 萬）。`;
+}
+
+function renderCurve(mode){
+  if(!curveCache) return;
+  const { P, sims } = curveCache;
+  const mk = (rows,color,w) => ({ color, width:w||2, data: rows.map(r=>({x:r.i,y:r.lna})) });
+  let series=[];
+  if(mode==="all"){
+    series=[ mk(sims.opt.rows,"#7ee787"), mk(sims.neu.rows,"#58a6ff"), mk(sims.con.rows,"#f78166") ];
+  } else {
+    const c = mode==="opt"?"#7ee787":mode==="con"?"#f78166":"#58a6ff";
+    series=[ mk(sims[mode].rows,c,2.5) ];
+  }
+  drawLineChart($("curveChart"), series, {
+    hlines:[ {y:P.targetA,color:"#3fb950"}, {y:P.targetB,color:"#8b949e"} ],
+    xLabels: yearTicks(P.months), minY:0
+  });
+}
+
+function renderTargetCmp(P){
+  const { sims } = curveCache;
+  const rows = [
+    ["達標目標","4,800（目標 A）","5,000（目標 B）"],
+    ["安全提領率 SWR", (P.swrA*100).toFixed(2)+"%", (P.swrB*100).toFixed(2)+"%"],
+    ["可年領（萬）", Math.round(P.targetA*P.swrA), Math.round(P.targetB*P.swrB)],
+    ["樂觀達標", fmtHit(sims.opt.rows,P.targetA), fmtHit(sims.opt.rows,P.targetB)],
+    ["中性達標", fmtHit(sims.neu.rows,P.targetA), fmtHit(sims.neu.rows,P.targetB)],
+    ["保守達標", fmtHit(sims.con.rows,P.targetA), fmtHit(sims.con.rows,P.targetB)],
+  ];
+  let h="";
+  rows.forEach((r,k)=>{ const tag=k===0?"th":"td"; h+=`<tr><${tag==="th"?"th":"td"}>${r[0]}</${tag==="th"?"th":"td"}><${tag}>${r[1]}</${tag}><${tag}>${r[2]}</${tag}></tr>`; });
+  $("targetCmp").innerHTML = h;
+  // 中性情境下兩目標時間差
+  const a=firstHit(sims.neu.rows,P.targetA), b=firstHit(sims.neu.rows,P.targetB);
+  let diff="—";
+  if(a&&b) diff = (b.i-a.i)+" 個月";
+  $("targetCmpNote").innerHTML = `中性情境下，從 4,800 → 5,000 約需額外 <b>${diff}</b>，換取年領金額差 ${Math.round(P.targetB*P.swrB)-Math.round(P.targetA*P.swrA)} 萬與更低提領率（更高安全邊際）。`;
+}
+
+function renderLtv(P, sim){
+  const rows = sim.rows;
+  const at = idx => rows.find(r=>r.i===idx) || rows[rows.length-1];
+  const hitA = firstHit(rows, P.targetA);
+  const pts = [
+    ["起始 (2026/05)", 0],
+    ["賣 A 房", P.sellIdx],
+    ["交屋", P.closeIdx],
+    ["B 房交屋 / cash-out", P.closeIdx],
+    ["信貸還清", P.creditEndIdx],
+    ["車貸還清", P.carEndIdx],
+    ["達標 (目標 A)", hitA?hitA.i:-1],
+  ];
+  let h = `<tr><th>時點</th><th>投資部位</th><th>質押</th><th>LTV</th><th>觸發跌幅 Buffer</th><th>B 房 balance</th></tr>`;
+  pts.forEach(([name,idx])=>{
+    if(idx<0 || idx>P.months){ h+=`<tr><td>${name}</td><td colspan="5" class="muted">—（未發生 / 超出區間）</td></tr>`; return; }
+    const r = at(idx);
+    const ltv = r.ltv;
+    const buf = 1 - ltv/P.maintLtv; // 投資部位可下跌幅度
+    const bufCls = buf>0.5?"pos":buf>0.25?"warnv":"neg";
+    const bnote = name.indexOf("B 房")>=0 ? `${P.bCashout.toLocaleString()}（不計流動）` : "—";
+    h += `<tr><td>${name}（${r.label}）</td><td>${Math.round(r.p).toLocaleString()}</td><td>${Math.round(r.pledge).toLocaleString()}</td><td>${(ltv*100).toFixed(1)}%</td><td class="${bufCls}">${(buf*100).toFixed(0)}%</td><td class="muted tiny">${bnote}</td></tr>`;
+  });
+  $("ltvTable").innerHTML = h;
+}
+
+// ---- 200MA 衝擊 ----
+function runMa(){
+  if(!curveCache) return;
+  const P = curveCache.P;
+  const baseRows = curveCache.sims.neu.rows.map(r=>({...r}));
+  const rm = Math.pow(1+P.rNeu,1/12)-1;
+
+  const trig = ymToIdx($("maTrigger").value);
+  const depth = num("maDepth")/100;
+  const fall = Math.max(1, num("maFall"));
+  const recover = Math.max(1, num("maRecover"));
+  const exposure = num("maExposure")/100;
+  const batches = Math.max(1, num("maBatches"));
+
+  // 建立事件期間的市場「額外」月報酬（相對基準），用以建構回檔→復原
+  // 下跌段：每月 -depth/fall（線性）；復原段：把跌幅補回（線性）
+  const evLen = fall + recover;
+  function marketExtra(k){ // k = 事件內第幾個月 (0-based)
+    if(k < fall) return -depth/fall;
+    if(k < evLen) return depth/recover; // 復原把跌幅加回
+    return 0;
+  }
+
+  // 基準（neu）已含 rm；事件加上 marketExtra
+  // Buy & hold：全程曝險 100%
+  // Filter：跌破當月(trig)起曝險降至 exposure；站回(=fall結束)後分 batches 個月回補
+  const start = Math.max(1, trig);
+  const winStart = start;
+  const winEnd = Math.min(P.months, start + evLen + batches + 6);
+
+  let pBH = baseRows[winStart-1] ? baseRows[winStart-1].p : P.p0;
+  let pF  = pBH;
+  const bh=[], fl=[];
+  // 記錄事件前一點
+  bh.push({x:winStart-1,y:pBH}); fl.push({x:winStart-1,y:pF});
+
+  for(let i=winStart;i<=winEnd;i++){
+    const k = i - start; // 事件內索引
+    const ext = (k>=0 && k<evLen) ? marketExtra(k) : 0;
+    // 月度淨流（與主模型一致的結餘投入，簡化僅用收支淨額）
+    let monthly = (P.income-P.living)/12;
+    if(i> P.sellIdx) {} else monthly -= P.mortPay/12;
+    if(i<=P.carEndIdx) monthly -= P.carPay/12;
+    if(i<=P.creditEndIdx) monthly -= P.creditPay/12;
+
+    // Buy & Hold
+    pBH = pBH*(1+rm+ext) + monthly;
+
+    // Filter 曝險
+    let exp = 1;
+    if(k>=0){
+      if(k < fall) exp = exposure;                 // 已出場
+      else {
+        const since = k - fall;                    // 站回後第幾個月
+        if(since < batches) exp = exposure + (1-exposure)*((since+1)/batches); // 分批回補
+        else exp = 1;
+      }
+    }
+    const effR = rm*exp + ext*exp; // 僅曝險部位承受市場；現金部位 0 報酬
+    pF = pF*(1+effR) + monthly;
+
+    bh.push({x:i,y:pBH}); fl.push({x:i,y:pF});
+  }
+
+  drawLineChart($("maChart"), [
+    {color:"#58a6ff", width:2.5, data:fl},
+    {color:"#f78166", width:2, data:bh},
+  ], { xLabels: yearTicks(P.months).filter(t=>t.x>=winStart-1 && t.x<=winEnd) });
+
+  const impact = pF - pBH;
+  const cls = impact>=0?"pos":"neg";
+  const sign = impact>=0?"+":"";
+  const verdict = impact>=0
+    ? `濾網在此回檔中<b>避開約 ${sign}${Math.round(impact)} 萬</b>損失（深度 ${(depth*100).toFixed(0)}% 夠大，出場有利）。`
+    : `此情境為假訊號 / whipsaw，濾網踏空成本 <b>${Math.round(impact)} 萬</b>（回檔太淺，出場反而吃虧）。`;
+  $("maKpi").innerHTML = `<div class="kpi-grid">
+    <div class="kpi"><div class="k-label">事件末 — 有濾網</div><div class="k-value">${Math.round(pF).toLocaleString()}</div></div>
+    <div class="kpi"><div class="k-label">事件末 — Buy &amp; Hold</div><div class="k-value">${Math.round(pBH).toLocaleString()}</div></div>
+    <div class="kpi"><div class="k-label">淨衝擊</div><div class="k-value ${cls}">${sign}${Math.round(impact).toLocaleString()} 萬</div><div class="k-sub">${(impact/pBH*100).toFixed(1)}%</div></div>
+  </div><div class="note tiny" style="margin-top:8px">${verdict}</div>`;
+}
+
+// ---- 儲存 / 載入 / 還原 ----
+function save(){
+  const o={}; FIELDS.forEach(f=>o[f]=$(f).value);
+  try{ localStorage.setItem(SKEY, JSON.stringify(o)); $("saveBtn").textContent="✓ 已儲存"; setTimeout(()=>$("saveBtn").textContent="💾 儲存假設",1500); }catch(e){}
+}
+function load(){
+  try{
+    const o=JSON.parse(localStorage.getItem(SKEY)||"null");
+    if(o) FIELDS.forEach(f=>{ if(o[f]!=null && $(f)) $(f).value=o[f]; });
+  }catch(e){}
+}
+function reset(){ FIELDS.forEach(f=>{ if($(f)) $(f).value=DEFAULTS[f]; }); run(); }
+
+// ---- 事件綁定 ----
+$("runBtn").onclick = run;
+$("saveBtn").onclick = save;
+$("resetBtn").onclick = reset;
+FIELDS.forEach(f=>{ const el=$(f); if(el) el.addEventListener("change", run); });
+document.querySelectorAll("#curveTabs .tab").forEach(t=>{
+  t.onclick = () => {
+    document.querySelectorAll("#curveTabs .tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    renderCurve(t.dataset.mode);
+  };
+});
+window.addEventListener("resize", ()=>{ if(curveCache){ const active=document.querySelector("#curveTabs .tab.active"); renderCurve(active?active.dataset.mode:"all"); runMa(); } });
+
+load();
+run();
+</script>
+</body>
+</html>
