@@ -238,6 +238,23 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   <div class="note tiny" id="targetCmpNote"></div>
 </div>
 
+<!-- ============ 真實可退門檻 ============ -->
+<div class="card">
+  <h2>✅ 真實可退門檻（扣已承諾支出 + 早期債務預留）</h2>
+  <p class="tiny muted" style="margin-top:0">
+    「帳面碰到 4,800」不等於能退。這裡把每個月的流動淨資產，再扣掉<b>之後還沒付的交屋／裝潢／工程款</b>，以及<b>退休後前幾年「生活＋車貸＋信貸」超過 SWR 可提供金額的累計缺口預留</b>，算出真正能安全退休的時點。
+  </p>
+  <div id="readyKpi"></div>
+  <div class="chart-wrap" style="margin-top:10px"><canvas id="readyChart" height="280"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#58a6ff"></i>流動淨資產（中性）</span>
+    <span><i class="swatch" style="background:#7ee787"></i>真實可動用（中性）</span>
+    <span><i class="swatch" style="background:#3fb950;height:2px;border-top:2px dashed #3fb950;background:none"></i>目標 A</span>
+  </div>
+  <table id="readyTable" style="margin-top:12px"></table>
+  <div class="note tiny" id="readyNote"></div>
+</div>
+
 <!-- ============ LTV / margin buffer ============ -->
 <div class="card">
   <h2>🛡️ 各時點 LTV + Margin Call Buffer（中性情境）</h2>
@@ -470,8 +487,110 @@ function run(){
   renderKpis(P, sims);
   renderCurve("all");
   renderTargetCmp(P);
+  renderReady(P, sims.neu);
   renderLtv(P, sims.neu);
   runMa();
+}
+
+// ---- 真實可退門檻 ----
+// 真實可動用 = 流動淨資產 − 未來已承諾支出 − 退休後早期債務缺口預留
+function computeReady(P, sim){
+  const rows = sim.rows;
+  // 工程款每月攤付額
+  const constrMonths = Math.max(1, P.constrEnd - P.constrStart + 1);
+  const constrPerMonth = P.constrAmt / constrMonths;
+  // 裝潢實際支付月份（達標 A 才付）
+  const renoPaid = sim.targetHit;
+
+  return rows.map(r => {
+    const i = r.i;
+
+    // (1) 未來已承諾支出：i 月之後還沒付的錢
+    // 剩餘工程款：仍在 (i, constrEnd] 且 >= constrStart 的月數
+    const constrLeftMonths = Math.max(0, P.constrEnd - Math.max(i, P.constrStart - 1));
+    let committed = constrPerMonth * constrLeftMonths;
+    if(P.closeIdx > i) committed += P.closeAmt;              // 交屋款尚未付
+    const renoUnpaid = (renoPaid >= 0 && i >= renoPaid) ? false : true;
+    if(renoUnpaid) committed += P.renoAmt;                    // 裝潢尚未付
+
+    // (2) 早期債務缺口預留：若「此月」就退休，未來幾年生活+車貸+信貸
+    //     超過 SWR 可提供金額的累計缺口（只算正缺口）
+    const swrMonthly = P.targetA * P.swrA / 12;
+    let reserve = 0;
+    const horizon = Math.max(P.carEndIdx, P.creditEndIdx);
+    for(let j = i + 1; j <= horizon && j <= P.months; j++){
+      let need = P.living / 12;
+      if(j <= P.carEndIdx) need += P.carPay / 12;
+      if(j <= P.creditEndIdx) need += P.creditPay / 12;
+      const gap = need - swrMonthly;
+      if(gap > 0) reserve += gap;
+    }
+
+    const usable = r.lna - committed - reserve;
+    return { i, label:r.label, lna:r.lna, committed, reserve, usable };
+  });
+}
+
+function firstReady(ready, target){
+  for(const r of ready) if(r.usable >= target) return r;
+  return null;
+}
+
+function renderReady(P, sim){
+  const ready = computeReady(P, sim);
+  const paperHit = firstHit(sim.rows, P.targetA);   // 帳面達標
+  const realHit  = firstReady(ready, P.targetA);    // 真實可退
+
+  // KPI
+  let gapTxt = "—";
+  if(paperHit && realHit) gapTxt = (realHit.i - paperHit.i) + " 個月";
+  const last = ready[ready.length-1];
+  $("readyKpi").innerHTML = `<div class="kpi-grid">
+    <div class="kpi"><div class="k-label neu">帳面碰到 4,800</div><div class="k-value">${paperHit?paperHit.label:"未達標"}</div><div class="k-sub">流動淨資產達標（含未付支出）</div></div>
+    <div class="kpi"><div class="k-label opt">真實可退（扣預留）</div><div class="k-value">${realHit?realHit.label:"未達標"}</div><div class="k-sub">可動用 ≥ ${P.targetA.toLocaleString()}</div></div>
+    <div class="kpi"><div class="k-label">兩者落差</div><div class="k-value ${realHit&&paperHit&&realHit.i>paperHit.i?'warnv':'pos'}">${gapTxt}</div><div class="k-sub">帳面達標後還要等多久</div></div>
+  </div>`;
+
+  // 圖：流動淨資產 vs 真實可動用
+  drawLineChart($("readyChart"), [
+    { color:"#58a6ff", width:2,   data: ready.map(r=>({x:r.i,y:r.lna})) },
+    { color:"#7ee787", width:2.5, data: ready.map(r=>({x:r.i,y:r.usable})) },
+  ], { hlines:[ {y:P.targetA,color:"#3fb950"} ], xLabels: yearTicks(P.months), minY:0 });
+
+  // 表：關鍵時點的拆解
+  const picks = [];
+  if(paperHit) picks.push(["帳面達標", paperHit.i]);
+  if(realHit)  picks.push(["真實可退", realHit.i]);
+  picks.push(["期末", last.i]);
+  // 也補幾個年末
+  [ymToIdx("2026-12"), ymToIdx("2028-12"), ymToIdx("2030-12")].forEach((idx,k)=>{
+    if(idx>=0 && idx<=P.months) picks.push([["2026末","2028末","2030末"][k], idx]);
+  });
+  // 去重 + 排序
+  const seen = new Set();
+  const uniq = picks.filter(([n,idx])=>{ if(seen.has(idx))return false; seen.add(idx); return true; })
+                    .sort((a,b)=>a[1]-b[1]);
+  let h = `<tr><th>時點</th><th>流動淨資產</th><th>未付支出</th><th>債務缺口預留</th><th>真實可動用</th><th>達標?</th></tr>`;
+  uniq.forEach(([name,idx])=>{
+    const r = ready.find(x=>x.i===idx) || last;
+    const ok = r.usable >= P.targetA;
+    h += `<tr><td>${name}（${r.label}）</td><td>${Math.round(r.lna).toLocaleString()}</td><td class="warnv">−${Math.round(r.committed).toLocaleString()}</td><td class="warnv">−${Math.round(r.reserve).toLocaleString()}</td><td class="${ok?'pos':'neg'}"><b>${Math.round(r.usable).toLocaleString()}</b></td><td>${ok?'✅':'—'}</td></tr>`;
+  });
+  $("readyTable").innerHTML = h;
+
+  // 結論
+  const swrIncome = Math.round(P.targetA * P.swrA);
+  const earlyNeed = P.living + P.carPay + P.creditPay;
+  const earlyRate = (earlyNeed / P.targetA * 100).toFixed(1);
+  let verdict;
+  if(realHit && paperHit && realHit.i > paperHit.i){
+    verdict = `帳面 <b>${paperHit.label}</b> 碰到 ${P.targetA.toLocaleString()}，但要到 <b>${realHit.label}</b> 才真正可退——中間 <b>${realHit.i-paperHit.i} 個月</b>差距，來自尚未付清的交屋／裝潢／工程款，以及退休前幾年「生活 ${P.living}＋車貸 ${P.carPay}＋信貸 ${P.creditPay}＝${earlyNeed} 萬/年」對 ${P.targetA.toLocaleString()} 部位等於 <b>${earlyRate}% 提領率</b>（高於 SWR ${(P.swrA*100).toFixed(2)}%＝年領 ${swrIncome} 萬），需預先留出缺口。`;
+  } else if(realHit){
+    verdict = `此假設下真實可動用在 <b>${realHit.label}</b> 即站上 ${P.targetA.toLocaleString()}，與帳面達標幾乎同步——代表已承諾支出與早期債務負擔影響有限。`;
+  } else {
+    verdict = `模擬區間內<b>真實可動用尚未站上 ${P.targetA.toLocaleString()}</b>：即使帳面碰線，扣掉未付支出與債務缺口預留後仍不足，建議延後退休或調整目標／支出假設。`;
+  }
+  $("readyNote").innerHTML = `<b>真實達標 ＝ 流動淨資產 − 未付支出 − 早期債務缺口預留。</b>${verdict} 等信貸（${$("creditEnd").value}）、車貸（${$("carEnd").value}）陸續清掉後，年現金需求降回約 ${P.living} 萬（${(P.living/P.targetA*100).toFixed(1)}% 提領率），安全邊際才真正打開。`;
 }
 
 function fmtHit(rows, target){
