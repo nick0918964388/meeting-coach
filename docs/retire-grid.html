@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>退休計畫 — 大盤點位 × 年份 對照</title>
+<style>
+:root{--bg:#0d1117;--bg-2:#161b22;--bg-3:#1f2630;--border:#2a3340;--text:#e6edf3;--text-muted:#8b949e;--accent:#58a6ff;--accent-2:#7ee787;--warn:#f78166;--danger:#f85149;--success:#3fb950;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;font-size:14px;line-height:1.5;padding:16px;max-width:900px;margin:0 auto;}
+h1{font-size:20px;margin:0 0 4px;}
+.subtitle{color:var(--text-muted);margin:0 0 16px;font-size:13px;}
+nav{display:flex;gap:12px;margin:0 0 16px;font-size:13px;flex-wrap:wrap;}
+nav a{color:var(--accent);text-decoration:none;}
+nav a:hover{text-decoration:underline;}
+nav a.active{color:var(--text);font-weight:600;}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;}
+.card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:6px;}
+.card h3{font-size:13px;color:var(--text-muted);margin:16px 0 8px;font-weight:600;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;}
+@media (max-width:620px){.grid2{grid-template-columns:1fr;}}
+.input-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;}
+.input-row label{color:var(--text-muted);flex:1;min-width:0;}
+.input-row input,.input-row select{width:96px;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);text-align:right;}
+.input-row.narrow input{width:70px;}
+.muted{color:var(--text-muted);}
+.tiny{font-size:12px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+th:first-child,td:first-child{text-align:left;}
+th{color:var(--text-muted);font-weight:600;}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+@media (max-width:620px){.kpi-grid{grid-template-columns:1fr;}}
+.kpi{background:var(--bg-3);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.kpi .k-label{color:var(--text-muted);font-size:12px;}
+.kpi .k-value{font-size:18px;font-weight:700;margin-top:4px;}
+.kpi .k-sub{color:var(--text-muted);font-size:12px;margin-top:2px;}
+.pos{color:var(--success);}
+.neg{color:var(--danger);}
+.warnv{color:var(--warn);}
+.ok-cell{color:var(--success);font-weight:700;}
+.note{background:var(--bg-3);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:10px 12px;font-size:12px;color:var(--text-muted);margin-top:12px;}
+.note b{color:var(--text);}
+.slider-row{display:flex;align-items:center;gap:12px;margin:8px 0;}
+.slider-row input[type=range]{flex:1;}
+.bignum{font-size:26px;font-weight:800;}
+.toggle-row{display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap;}
+.chip{padding:5px 12px;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);cursor:pointer;font-size:13px;}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
+.legend{font-size:12px;color:var(--text-muted);margin-top:8px;}
+</style>
+</head>
+<body>
+<h1>退休計畫 — 大盤點位 × 年份 對照</h1>
+<p class="subtitle">輸入 TAIEX 點位 → 即時看淨資產與「哪一年可退」。單位：萬元。組合對大盤彈性由實際庫存自動推算。</p>
+<nav>
+  <a href="index.html">淨資產試算</a>
+  <a href="plan.html">計畫</a>
+  <a href="cashflow.html">動態現金流</a>
+  <a href="monitor.html">監控</a>
+  <a href="retire-grid.html" class="active">大盤對照</a>
+</nav>
+
+<!-- ===== 庫存 / 假設 ===== -->
+<div class="card">
+  <h2>⚙️ 庫存與假設</h2>
+  <div class="grid2">
+    <div>
+      <h3>目前庫存（張/股 × 價，自動分類）</h3>
+      <div class="input-row narrow"><label>00631L (2x台股) 張 / 價</label><span style="display:flex;gap:4px"><input id="h_631l_s" type="number" value="861"><input id="h_631l_p" type="number" value="36.94"></span></div>
+      <div class="input-row narrow"><label>00685L (2x台股) 張 / 價</label><span style="display:flex;gap:4px"><input id="h_685l_s" type="number" value="12.5"><input id="h_685l_p" type="number" value="32"></span></div>
+      <div class="input-row narrow"><label>00662 (Nasdaq,不連動) 張 / 價</label><span style="display:flex;gap:4px"><input id="h_662_s" type="number" value="27"><input id="h_662_p" type="number" value="122.1"></span></div>
+      <div class="input-row narrow"><label>Tesla (US,不連動) 股 / USD</label><span style="display:flex;gap:4px"><input id="h_tsla_s" type="number" value="15"><input id="h_tsla_p" type="number" value="435.79"></span></div>
+      <div class="input-row"><label>安聯科技 (β1.11台股) 金額萬</label><input id="h_allianz" type="number" value="251"></div>
+      <div class="input-row"><label>USD/TWD</label><input id="fx" type="number" value="31.41"></div>
+    </div>
+    <div>
+      <h3>現金 / 負債 / 大盤</h3>
+      <div class="input-row"><label>現金（活存+定存）</label><input id="cash0" type="number" value="164"></div>
+      <div class="input-row"><label>信貸餘額</label><input id="credit0" type="number" value="287"></div>
+      <div class="input-row"><label>質押餘額</label><input id="pledge0" type="number" value="508"></div>
+      <div class="input-row"><label>目前 TAIEX</label><input id="taiexNow" type="number" value="44733"></div>
+      <h3>退休目標</h3>
+      <div class="input-row"><label>目標淨資產</label><input id="targetA" type="number" value="4800"></div>
+      <div class="input-row"><label>安全提領率 SWR %</label><input id="swrA" type="number" value="4.25" step="0.05"></div>
+    </div>
+  </div>
+  <div class="note" id="elastNote"></div>
+</div>
+
+<!-- ===== 瞬間重估 ===== -->
+<div class="card">
+  <h2>📍 大盤瞬間到 X 點 → 淨資產</h2>
+  <div class="slider-row">
+    <input id="snapSlider" type="range" min="40000" max="65000" step="500" value="53000">
+    <input id="snapInput" type="number" value="53000" style="width:90px;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);text-align:right;">
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="k-label">TAIEX</div><div class="k-value" id="snapTaiex">—</div><div class="k-sub" id="snapPct">—</div></div>
+    <div class="kpi"><div class="k-label">投資池</div><div class="k-value" id="snapPool">—</div><div class="k-sub">2x台股 + 1x安聯 + 不連動持平</div></div>
+    <div class="kpi"><div class="k-label">淨資產（瞬間）</div><div class="k-value" id="snapNet">—</div><div class="k-sub" id="snapVs">—</div></div>
+  </div>
+  <div class="note" id="snapNote"></div>
+</div>
+
+<!-- ===== 2D 對照 ===== -->
+<div class="card">
+  <h2>📊 TAIEX 點位 × 年份 → 淨資產（萬）</h2>
+  <div class="toggle-row">
+    <span class="muted tiny">情境疊加：</span>
+    <span class="chip" id="levChip">＋300萬循環信貸(只付息)</span>
+    <span class="chip on" id="repayChip">2028前還清</span>
+    <span class="muted tiny" id="levRate">利率
+      <input id="loanRate" type="number" value="4.5" step="0.5" style="width:54px;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:3px 6px;color:var(--text);text-align:right;">%</span>
+  </div>
+  <table id="gridTable"></table>
+  <div class="legend">✅ = 該年、該點位「真實可退」（已扣未付的交屋/裝潢/工程款 + 退休前車貸/信貸超過 SWR 的缺口預留）。含賣舊房 +350、逐年儲蓄、信貸2030/車貸2033 還清。</div>
+  <div class="note tiny">市場路徑假設：指數由今日以固定 CAGR 成長到該點位；組合報酬 = 彈性 β × 指數報酬（β 由你的庫存自動算）。leveraged ETF 的波動 drag 未精算，屬「大致」口徑。</div>
+</div>
+
+<p class="tiny muted" style="text-align:center;margin:24px 0">個人財務試算，數字僅供規劃參考，非投資建議。</p>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const N=id=>parseFloat($(id).value)||0;
+const ALLIANZ_BETA=1.11; // 安聯台灣科技 vs 大盤 beta(台積電佔約61%,前五大皆台股權值股)
+
+// ===== 退休現金流模型（沿用 cashflow.html 口徑）=====
+const EV={ income:260,living:120,creditPay:67,carPay:52,mortPay:55,
+  sellAmt:350,sellIdx:5, constrAmt:220,constrStart:1,constrEnd:31,
+  closeAmt:185,closeIdx:25, renoAmt:250, creditEndIdx:55,carEndIdx:91, months:168 };
+
+function holdings(){
+  const fx=N('fx');
+  const tw2x = N('h_631l_s')*N('h_631l_p')*0.1 + N('h_685l_s')*N('h_685l_p')*0.1;
+  const tw1x = N('h_allianz');
+  const nonTW = N('h_662_s')*N('h_662_p')*0.1 + N('h_tsla_s')*N('h_tsla_p')*fx/10000;
+  const p0 = tw2x+tw1x+nonTW;
+  const beta = p0>0 ? (2*tw2x + ALLIANZ_BETA*tw1x)/p0 : 0; // 對大盤瞬間彈性
+  return {tw2x,tw1x,nonTW,p0,beta};
+}
+function base(){
+  return {...EV, cash0:N('cash0'),credit0:N('credit0'),pledge0:N('pledge0'),
+    targetA:N('targetA'), swrA:N('swrA')/100 };
+}
+
+// 模型：含可選 +300 循環信貸（borrow / 只付息 / 可選 2028前還）
+function sim(P,r,opt){
+  opt=opt||{};
+  const borrow=opt.borrow||0, rate=(opt.rate||0), repayIdx=opt.repay?24:-1;
+  let p=P.p0+borrow, credit=P.credit0, pledge=P.pledge0+borrow;
+  const cash=P.cash0;
+  let mort=true,reno=false,th=-1;
+  const rm=Math.pow(1+r,1/12)-1;
+  const cpm=P.constrAmt/Math.max(1,P.constrEnd-P.constrStart+1);
+  const cprin=P.credit0/Math.max(1,P.creditEndIdx+1);
+  const out=[];
+  for(let i=0;i<=P.months;i++){
+    if(i===P.sellIdx){p+=P.sellAmt;mort=false;}
+    if(i>=P.constrStart&&i<=P.constrEnd)p-=cpm;
+    if(i===P.closeIdx)p-=P.closeAmt;
+    if(i===repayIdx){p-=borrow;pledge-=borrow;}
+    if(i>0)p*=(1+rm);
+    if(i>0){
+      let m=(P.income-P.living)/12;
+      if(borrow && i<=(repayIdx<0?P.months:repayIdx)) m-=borrow*rate/12;
+      if(mort)m-=P.mortPay/12;
+      if(i<=P.carEndIdx)m-=P.carPay/12;
+      if(i<=P.creditEndIdx)m-=P.creditPay/12;
+      p+=m;
+      if(i<=P.creditEndIdx&&credit>0)credit=Math.max(0,credit-cprin);
+      else if(i>P.creditEndIdx)credit=0;
+    }
+    let lna=p+cash-credit-pledge;
+    if(!reno&&th<0&&lna>=P.targetA)th=i;
+    if(th>=0&&!reno&&i===th){p-=P.renoAmt;reno=true;lna=p+cash-credit-pledge;}
+    out.push({i,p,lna});
+  }
+  return {rows:out,th,borrow,rate,repayIdx};
+}
+function usableAt(P,s,idx){
+  const cpm=P.constrAmt/Math.max(1,P.constrEnd-P.constrStart+1); const rp=s.th;
+  const r=s.rows[idx]; const i=r.i;
+  const cl=Math.max(0,P.constrEnd-Math.max(i,P.constrStart-1));
+  let c=cpm*cl;
+  if(P.closeIdx>i)c+=P.closeAmt;
+  if(!(rp>=0&&i>=rp))c+=P.renoAmt;
+  const swrM=P.targetA*P.swrA/12;
+  let rv=0; const hz=Math.max(P.carEndIdx,P.creditEndIdx);
+  const heldLoan = s.borrow && (s.repayIdx<0);
+  for(let j=i+1;j<=hz&&j<=P.months;j++){
+    let need=P.living/12;
+    if(j<=P.carEndIdx)need+=P.carPay/12;
+    if(j<=P.creditEndIdx)need+=P.creditPay/12;
+    if(heldLoan)need+=s.borrow*s.rate/12;
+    const g=need-swrM; if(g>0)rv+=g;
+  }
+  return r.lna-c-rv;
+}
+function decIdx(y){return (y-2026)*12+7;}
+
+// ===== 瞬間重估 =====
+function renderSnap(){
+  const H=holdings(), B=base(), now=N('taiexNow'), L=N('snapInput');
+  const g=L/now-1;
+  const pool=H.tw2x*(1+2*g)+H.tw1x*(1+ALLIANZ_BETA*g)+H.nonTW;
+  const net=pool+B.cash0-B.credit0-B.pledge0;
+  const net0=H.p0+B.cash0-B.credit0-B.pledge0;
+  $('snapTaiex').textContent=Math.round(L).toLocaleString();
+  $('snapPct').textContent=(g>=0?'+':'')+(g*100).toFixed(1)+'% vs 今日';
+  $('snapPool').textContent=Math.round(pool).toLocaleString();
+  $('snapNet').textContent=Math.round(net).toLocaleString();
+  const diff=net-B.targetA;
+  $('snapVs').innerHTML=diff>=0?`<span class="pos">達標 +${Math.round(diff).toLocaleString()}</span>`:`<span class="neg">距 ${B.targetA.toLocaleString()} 還差 ${Math.round(-diff).toLocaleString()}</span>`;
+  // 反推達標點位
+  const needP=B.targetA-B.cash0+B.credit0+B.pledge0;
+  const gNeed=(needP-H.nonTW-H.tw2x-H.tw1x)/(2*H.tw2x+ALLIANZ_BETA*H.tw1x);
+  const taiexNeed=now*(1+gNeed);
+  $('snapNote').innerHTML=`目前淨資產 <b>${Math.round(net0).toLocaleString()}</b>（TAIEX ${Math.round(now).toLocaleString()}）。要「現在瞬間」淨資產達 ${B.targetA.toLocaleString()} → 大盤需到 <b>${Math.round(taiexNeed).toLocaleString()}</b>（+${(gNeed*100).toFixed(1)}%）。<br>⚠️ 瞬間重估只把今天庫存重新計價，<b>未含</b>賣房 +350、逐年儲蓄、債務還清——那些要靠時間，見下方對照表。`;
+}
+
+// ===== 2D 對照表 =====
+let levOn=false, repayOn=true;
+function renderGrid(){
+  const H=holdings(), B=base(), now=N('taiexNow'), beta=H.beta;
+  const opt = levOn ? {borrow:300, rate:N('loanRate')/100, repay:repayOn} : {};
+  const cols=[48000,50000,53000,55000,57000,60000];
+  const years=[2027,2028,2029,2030,2031,2032,2033];
+  let h=`<tr><th>年末＼TAIEX</th>${cols.map(c=>`<th>${c/1000}k</th>`).join('')}</tr>`;
+  for(const y of years){
+    const d=decIdx(y), t=d/12;
+    let row=`<tr><td>${y}</td>`;
+    for(const L of cols){
+      const g=Math.pow(L/now,1/t)-1;
+      const r=beta*g;
+      const s=sim({...H,...B},r,opt);
+      const idx=s.rows.findIndex(x=>x.i===d);
+      const lna=s.rows[idx].lna;
+      const ok=usableAt({...H,...B},s,idx)>=B.targetA;
+      row+=`<td class="${ok?'ok-cell':''}">${Math.round(lna).toLocaleString()}${ok?' ✅':''}</td>`;
+    }
+    h+=row+'</tr>';
+  }
+  $('gridTable').innerHTML=h;
+}
+
+function renderElast(){
+  const H=holdings();
+  $('elastNote').innerHTML=`投資池合計 <b>${Math.round(H.p0).toLocaleString()}</b> 萬｜其中 2x台股 ${Math.round(H.tw2x).toLocaleString()}、安聯(β1.11) ${Math.round(H.tw1x).toLocaleString()}、不連動台股(00662/TSLA) ${Math.round(H.nonTW).toLocaleString()}。<br>→ 對大盤瞬間彈性 β ≈ <b>${H.beta.toFixed(2)}x</b>（大盤每漲 1%，投資池約漲 ${H.beta.toFixed(2)}%）。安聯 β=1.11：台積電佔約 61%、前五大皆台股權值股。`;
+}
+
+function renderAll(){ renderElast(); renderSnap(); renderGrid(); }
+
+// 事件
+['h_631l_s','h_631l_p','h_685l_s','h_685l_p','h_662_s','h_662_p','h_tsla_s','h_tsla_p','h_allianz','fx','cash0','credit0','pledge0','taiexNow','targetA','swrA','loanRate']
+  .forEach(id=>$(id).addEventListener('input',renderAll));
+$('snapSlider').addEventListener('input',e=>{$('snapInput').value=e.target.value;renderSnap();});
+$('snapInput').addEventListener('input',e=>{$('snapSlider').value=e.target.value;renderSnap();});
+$('levChip').addEventListener('click',()=>{levOn=!levOn;$('levChip').classList.toggle('on',levOn);renderGrid();});
+$('repayChip').addEventListener('click',()=>{repayOn=!repayOn;$('repayChip').classList.toggle('on',repayOn);$('repayChip').textContent=repayOn?'2028前還清':'續抱(不還)';renderGrid();});
+
+renderAll();
+</script>
+</body>
+</html>
