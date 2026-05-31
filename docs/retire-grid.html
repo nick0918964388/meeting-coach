@@ -84,6 +84,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
       <h3>退休目標</h3>
       <div class="input-row"><label>目標淨資產</label><input id="targetA" type="number" value="4800"></div>
       <div class="input-row"><label>安全提領率 SWR %</label><input id="swrA" type="number" value="4.25" step="0.05"></div>
+      <div class="input-row"><label>退休後固定日常/年</label><input id="dailyExp" type="number" value="65"></div>
     </div>
   </div>
   <div class="note" id="elastNote"></div>
@@ -102,6 +103,25 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
     <div class="kpi"><div class="k-label">淨資產（瞬間）</div><div class="k-value" id="snapNet">—</div><div class="k-sub" id="snapVs">—</div></div>
   </div>
   <div class="note" id="snapNote"></div>
+</div>
+
+<!-- ===== 退休後支出 SWR 口徑 ===== -->
+<div class="card">
+  <h2>🧳 退休後支出口徑（SWR）→ 需要多少淨資產</h2>
+  <p class="tiny muted" style="margin-top:0">退休後年支出 ＝ 固定日常 ＋ 旅遊（可調）。所需淨資產 ＝ 年支出 ÷ SWR。對照你目前淨資產，看「養活生活＋旅遊」這口徑下是否已達標。</p>
+  <div class="slider-row">
+    <span class="muted tiny" style="white-space:nowrap">退休後旅遊預算/年</span>
+    <input id="travelSlider" type="range" min="0" max="80" step="5" value="50">
+    <input id="travelExp" type="number" value="50" style="width:70px;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);text-align:right;">
+    <span class="muted tiny">萬</span>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="k-label">退休後年支出</div><div class="k-value" id="swrSpend">—</div><div class="k-sub" id="swrSpendSub">固定 + 旅遊</div></div>
+    <div class="kpi"><div class="k-label">SWR 所需淨資產</div><div class="k-value" id="swrNeed">—</div><div class="k-sub">年支出 ÷ SWR</div></div>
+    <div class="kpi"><div class="k-label">目前淨資產 vs 需求</div><div class="k-value" id="swrGap">—</div><div class="k-sub" id="swrGapSub">—</div></div>
+  </div>
+  <table id="swrTable" style="margin-top:12px"></table>
+  <div class="note tiny" id="swrNote"></div>
 </div>
 
 <!-- ===== 2D 對照 ===== -->
@@ -251,13 +271,41 @@ function renderElast(){
   $('elastNote').innerHTML=`投資池合計 <b>${Math.round(H.p0).toLocaleString()}</b> 萬｜其中 2x台股 ${Math.round(H.tw2x).toLocaleString()}、安聯(β1.11) ${Math.round(H.tw1x).toLocaleString()}、不連動台股(00662/TSLA) ${Math.round(H.nonTW).toLocaleString()}。<br>→ 對大盤瞬間彈性 β ≈ <b>${H.beta.toFixed(2)}x</b>（大盤每漲 1%，投資池約漲 ${H.beta.toFixed(2)}%）。安聯 β=1.11：台積電佔約 61%、前五大皆台股權值股。`;
 }
 
-function renderAll(){ renderElast(); renderSnap(); renderGrid(); }
+// ===== 退休後支出 SWR 口徑 =====
+function renderSwr(){
+  const H=holdings(), B=base();
+  const swr=N('swrA')/100;
+  const daily=N('dailyExp'), travel=N('travelExp');
+  const spend=daily+travel;
+  const need=swr>0? spend/swr : 0;
+  const curNet=H.p0+B.cash0-B.credit0-B.pledge0;
+  $('swrSpend').textContent=spend.toLocaleString()+' 萬';
+  $('swrSpendSub').textContent=`固定 ${daily} ＋ 旅遊 ${travel}`;
+  $('swrNeed').textContent=Math.round(need).toLocaleString()+' 萬';
+  const gap=curNet-need;
+  $('swrGap').innerHTML = gap>=0 ? `<span class="pos">已達標 +${Math.round(gap).toLocaleString()}</span>` : `<span class="neg">缺 ${Math.round(-gap).toLocaleString()}</span>`;
+  $('swrGapSub').textContent=`目前淨資產 ${Math.round(curNet).toLocaleString()}（可支撐年領 ${Math.round(curNet*swr).toLocaleString()}）`;
+  // 旅遊敏感度表
+  let h=`<tr><th>旅遊預算</th><th>退休後年支出</th><th>SWR所需淨資產</th><th>vs 目前 ${Math.round(curNet).toLocaleString()}</th></tr>`;
+  [0,20,40,50,60,80].forEach(tv=>{
+    const sp=daily+tv, nd=swr>0?sp/swr:0, g=curNet-nd;
+    const ok=g>=0;
+    h+=`<tr><td>${tv} 萬${tv===travel?' ◀':''}</td><td>${sp.toLocaleString()}</td><td>${Math.round(nd).toLocaleString()}</td><td class="${ok?'pos':'neg'}">${ok?'已達標 +'+Math.round(g).toLocaleString():'缺 '+Math.round(-g).toLocaleString()}</td></tr>`;
+  });
+  $('swrTable').innerHTML=h;
+  $('swrNote').innerHTML=`<b>注意：</b>此「SWR 口徑」只看「能否養活退休後生活＋旅遊」，<b>不含</b>新房 cash-out、裝潢、未清債務與安全緩衝——那些才是把目標推到 4,800 的原因（見上方 2D 表為房產計畫口徑）。兩者並列：SWR 口徑常常「現在就夠」，但要完成換房＋去槓桿仍需走完計畫。`;
+}
+
+function renderAll(){ renderElast(); renderSnap(); renderSwr(); renderGrid(); }
 
 // 事件
 ['h_631l_s','h_631l_p','h_685l_s','h_685l_p','h_662_s','h_662_p','h_tsla_s','h_tsla_p','h_allianz','fx','cash0','credit0','pledge0','taiexNow','targetA','swrA','loanRate']
   .forEach(id=>$(id).addEventListener('input',renderAll));
 $('snapSlider').addEventListener('input',e=>{$('snapInput').value=e.target.value;renderSnap();});
 $('snapInput').addEventListener('input',e=>{$('snapSlider').value=e.target.value;renderSnap();});
+$('travelSlider').addEventListener('input',e=>{$('travelExp').value=e.target.value;renderSwr();});
+$('travelExp').addEventListener('input',e=>{$('travelSlider').value=e.target.value;renderSwr();});
+$('dailyExp').addEventListener('input',renderSwr);
 $('levChip').addEventListener('click',()=>{levOn=!levOn;$('levChip').classList.toggle('on',levOn);renderGrid();});
 $('repayChip').addEventListener('click',()=>{repayOn=!repayOn;$('repayChip').classList.toggle('on',repayOn);$('repayChip').textContent=repayOn?'2028前還清':'續抱(不還)';renderGrid();});
 
