@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>資產記錄 — 記帳資料分析</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #1f2630;
+  --border: #2a3340;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-2: #7ee787;
+  --warn: #f78166;
+  --danger: #f85149;
+  --success: #3fb950;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0 auto;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 14px; line-height: 1.5; padding: 16px; max-width: 980px;
+}
+h1 { font-size: 20px; margin: 0 0 4px; }
+.subtitle { color: var(--text-muted); margin: 0 0 16px; font-size: 13px; }
+nav { display: flex; gap: 12px; margin: 0 0 16px; font-size: 13px; flex-wrap: wrap; }
+nav a { color: var(--accent); text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+nav a.active { color: var(--text); font-weight: 600; }
+.card {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; margin-bottom: 16px;
+}
+.card h2 { font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+.card .hint { color: var(--text-muted); font-size: 12px; margin: 0 0 12px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 720px) { .kpi-grid { grid-template-columns: 1fr 1fr; } }
+.kpi { background: var(--bg-3); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.kpi .k-label { color: var(--text-muted); font-size: 12px; }
+.kpi .k-value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.kpi .k-sub { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.pos { color: var(--success); }
+.neg { color: var(--danger); }
+.chart-wrap { position: relative; overflow-x: auto; }
+canvas { display: block; width: 100%; max-width: 100%; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; color: var(--text-muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-muted); font-weight: 600; position: sticky; top: 0; background: var(--bg-2); }
+.tbl-wrap { max-height: 420px; overflow: auto; }
+.note {
+  background: var(--bg-3); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
+  padding: 10px 12px; font-size: 12px; color: var(--text-muted); margin-top: 8px;
+}
+.tooltip {
+  position: fixed; pointer-events: none; z-index: 50; background: #0b0e14; color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; font-size: 12px;
+  white-space: nowrap; opacity: 0; transition: opacity .08s; box-shadow: 0 4px 14px rgba(0,0,0,.45);
+}
+</style>
+</head>
+<body>
+
+<h1>📒 資產記錄</h1>
+<p class="subtitle" id="subtitle">記帳資料分析</p>
+
+<nav>
+  <a href="./">淨資產試算</a>
+  <a href="plan.html">計畫</a>
+  <a href="cashflow.html">動態現金流</a>
+  <a href="monitor.html">監控</a>
+  <a href="retire-grid.html">大盤對照</a>
+  <a href="assets.html" class="active">資產記錄</a>
+</nav>
+
+<!-- KPI -->
+<div class="card">
+  <div class="kpi-grid" id="kpis"></div>
+</div>
+
+<!-- 損益 -->
+<div class="card">
+  <h2>📈 各月損益</h2>
+  <p class="hint">持倉因價格 / 匯率變動產生的當月損益（不含買賣本金）。</p>
+  <div class="chart-wrap"><canvas id="cPL" height="260"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#3fb950"></i> 獲利</span>
+    <span><i class="swatch" style="background:#f85149"></i> 虧損</span>
+  </div>
+</div>
+
+<!-- 部位進出 -->
+<div class="card">
+  <h2>🔁 各月部位進出</h2>
+  <p class="hint">投資部位的當月淨買賣本金。正 = 加碼買進，負 = 減碼賣出。</p>
+  <div class="chart-wrap"><canvas id="cFlow" height="260"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#58a6ff"></i> 加碼（買進）</span>
+    <span><i class="swatch" style="background:#f78166"></i> 減碼（賣出）</span>
+  </div>
+</div>
+
+<!-- 投資部位 -->
+<div class="card">
+  <h2>💼 投資部位（月底）</h2>
+  <p class="hint">每月底所有投資帳戶的市值合計（TWD）。</p>
+  <div class="chart-wrap"><canvas id="cInv" height="260"></canvas></div>
+</div>
+
+<!-- 淨資產 -->
+<div class="card">
+  <h2>🏦 淨資產（月底）</h2>
+  <p class="hint">淨資產 = 投資部位 + 現金 − 負債。</p>
+  <div class="chart-wrap"><canvas id="cNet" height="260"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#7ee787"></i> 正值</span>
+    <span><i class="swatch" style="background:#f85149"></i> 負值</span>
+  </div>
+</div>
+
+<!-- 投資部位組成 -->
+<div class="card">
+  <h2>🧩 目前投資部位組成</h2>
+  <p class="hint">最新一筆資料的各標的市值（TWD）。</p>
+  <div class="chart-wrap"><canvas id="cHold" height="360"></canvas></div>
+</div>
+
+<!-- 明細表 -->
+<div class="card">
+  <h2>📋 月度明細</h2>
+  <div class="tbl-wrap">
+    <table id="tbl">
+      <thead><tr>
+        <th>月份</th><th>損益</th><th>部位進出</th><th>投資部位</th><th>現金</th><th>負債</th><th>淨資產</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="note" id="note"></div>
+</div>
+
+<div class="tooltip" id="tip"></div>
+
+<script>
+// ====== 資料（由 entry-2024/2025/2026.csv 匯出計算） ======
+const DATA = {"meta":{"generated_from":["entry-2024.csv","entry-2025.csv","entry-2026.csv"],"range":["2024-06","2026-06"],"rows":3719},"monthly":[{"ym":"2024-06","pl":1171288,"flow":20342502,"inv":21513790,"cash":157916,"debt":12456902,"net":9214804},{"ym":"2024-07","pl":441337,"flow":-6002400,"inv":15952727,"cash":1411792,"debt":7407320,"net":9957199},{"ym":"2024-08","pl":230308,"flow":969600,"inv":17152636,"cash":523251,"debt":8385844,"net":9290043},{"ym":"2024-09","pl":364845,"flow":1509160,"inv":19026640,"cash":481492,"debt":9851832,"net":9656300},{"ym":"2024-10","pl":-79124,"flow":105970,"inv":19053487,"cash":481492,"debt":9851832,"net":9683147},{"ym":"2024-11","pl":-674937,"flow":-6245550,"inv":12132999,"cash":2208023,"debt":5456506,"net":8884516},{"ym":"2024-12","pl":1005484,"flow":-297567,"inv":12840917,"cash":2208023,"debt":7456506,"net":7592434},{"ym":"2025-01","pl":17041,"flow":-4914787,"inv":7943171,"cash":2100000,"debt":9806506,"net":236665},{"ym":"2025-02","pl":-621208,"flow":359025,"inv":7680988,"cash":1940000,"debt":9936506,"net":-315518},{"ym":"2025-03","pl":-595753,"flow":-3231284,"inv":3853950,"cash":2279384,"debt":9320789,"net":-3187455},{"ym":"2025-04","pl":-549838,"flow":2704383,"inv":6008994,"cash":2246937,"debt":9517075,"net":-1261144},{"ym":"2025-05","pl":783500,"flow":365507,"inv":7158001,"cash":2146999,"debt":9917075,"net":-612075},{"ym":"2025-06","pl":701442,"flow":0,"inv":7870056,"cash":2136386,"debt":9917075,"net":89367},{"ym":"2025-07","pl":1186884,"flow":1305731,"inv":10362937,"cash":1961917,"debt":8855497,"net":3469358},{"ym":"2025-08","pl":608919,"flow":4441890,"inv":15410254,"cash":1787688,"debt":6820558,"net":10377383},{"ym":"2025-09","pl":1999961,"flow":-664314,"inv":16748911,"cash":3450000,"debt":8280558,"net":11918353},{"ym":"2025-10","pl":2312158,"flow":-211723,"inv":18846120,"cash":3475133,"debt":8568846,"net":13752407},{"ym":"2025-11","pl":-1948308,"flow":1553985,"inv":18451610,"cash":3453388,"debt":9572936,"net":12332062},{"ym":"2025-12","pl":895807,"flow":868856,"inv":20215752,"cash":741191,"debt":8772936,"net":12184007},{"ym":"2026-01","pl":2906969,"flow":634534,"inv":23757245,"cash":687574,"debt":9672936,"net":14771884},{"ym":"2026-02","pl":2542513,"flow":917825,"inv":27217596,"cash":247561,"debt":10199335,"net":17265823},{"ym":"2026-03","pl":-16019215,"flow":7887764,"inv":19082350,"cash":3914186,"debt":8099335,"net":14897201},{"ym":"2026-04","pl":8860795,"flow":5680664,"inv":33625101,"cash":1002954,"debt":10529527,"net":24098528},{"ym":"2026-05","pl":7487667,"flow":1921678,"inv":43036624,"cash":1463213,"debt":11262080,"net":33237757},{"ym":"2026-06","pl":777591,"flow":1206600,"inv":45021170,"cash":1462858,"debt":12479215,"net":34004813}],"holdings":[["元大台灣50正2",25463470],["群益臺灣加權正2",9049500],["富邦NASDAQ",3314250],["安聯台灣科技",2752273],["二倍做多纳斯达克100ETF-ProShare",1228347],["ProShares UltraPro S&P500",875308],["ProShares UltraPro QQQ",747049],["台指期",624080],["Alpha Architect 1-3 Month Box E",250919],["Tesla Inc",212272],["期元大S&P黃金正2",202800],["三倍做多納斯達克100ETF-ProShare",200556],["期元大道瓊白銀",62550],["Global X Defense Tech ETF",39120],["GraniteShares 2x Long NVDA Daily ETF",-1324]]};
+
+// ====== 格式化 ======
+const fmtFull = v => (v<0?'-':'') + 'NT$' + Math.abs(Math.round(v)).toLocaleString();
+function fmtWan(v){ // 以「萬」為單位，≥1億改用「億」
+  const w = v/10000;
+  if (Math.abs(w) >= 10000) return (w/10000).toFixed(2).replace(/\.?0+$/,'') + '億';
+  return Math.round(w).toLocaleString() + '萬';
+}
+const mLabel = ym => ym.slice(2).replace('-','/'); // 24/06
+
+// ====== KPI ======
+(function(){
+  const m = DATA.monthly, last = m[m.length-1];
+  const totalPL = m.reduce((s,r)=>s+r.pl,0);
+  const ytd = m.filter(r=>r.ym>='2026-01').reduce((s,r)=>s+r.pl,0);
+  const first = m[0];
+  const cards = [
+    {l:'最新淨資產', v:fmtWan(last.net), s:last.ym, cls: last.net>=0?'pos':'neg'},
+    {l:'投資部位', v:fmtWan(last.inv), s:'總負債 '+fmtWan(last.debt)},
+    {l:'累計損益', v:(totalPL>=0?'+':'')+fmtWan(totalPL), s:first.ym+' 起', cls: totalPL>=0?'pos':'neg'},
+    {l:'今年以來損益', v:(ytd>=0?'+':'')+fmtWan(ytd), s:'2026 YTD', cls: ytd>=0?'pos':'neg'},
+  ];
+  document.getElementById('kpis').innerHTML = cards.map(c=>
+    `<div class="kpi"><div class="k-label">${c.l}</div>`+
+    `<div class="k-value ${c.cls||''}">${c.v}</div>`+
+    `<div class="k-sub">${c.s}</div></div>`).join('');
+  document.getElementById('subtitle').textContent =
+    `資料來源：記帳軟體匯出 ${DATA.meta.range[0]} ～ ${DATA.meta.range[1]}（${DATA.meta.rows.toLocaleString()} 筆交易）`;
+})();
+
+// ====== 純 canvas 長條圖 ======
+const tip = document.getElementById('tip');
+function setupCanvas(cv){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 900;
+  const h = parseInt(cv.getAttribute('height')) || 260;
+  cv.width = w*dpr; cv.height = h*dpr;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { ctx, w, h };
+}
+// 垂直長條圖（依正負上色），bars: [{label, value, color}]
+function drawBars(cv, bars, opts){
+  opts = opts || {};
+  const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0,0,w,h);
+  const padL=54, padR=12, padT=12, padB=30;
+  let maxV = Math.max(0, ...bars.map(b=>b.value));
+  let minV = Math.min(0, ...bars.map(b=>b.value));
+  if (minV===maxV){ maxV+=1; }
+  const span = maxV-minV || 1;
+  maxV += span*0.08; minV -= (minV<0? span*0.08 : 0);
+  const X = i => padL + (i+0.5)/bars.length*(w-padL-padR);
+  const Y = v => h-padB - (v-minV)/(maxV-minV)*(h-padT-padB);
+  const y0 = Y(0);
+
+  // grid + y labels
+  ctx.font = '11px sans-serif'; ctx.textBaseline='middle';
+  ctx.lineWidth=1;
+  const yticks=4;
+  for(let t=0;t<=yticks;t++){
+    const yv = minV + (maxV-minV)*t/yticks, yp = Y(yv);
+    ctx.strokeStyle = '#2a3340'; ctx.beginPath(); ctx.moveTo(padL,yp); ctx.lineTo(w-padR,yp); ctx.stroke();
+    ctx.fillStyle='#8b949e'; ctx.textAlign='right'; ctx.fillText(fmtWan(yv), padL-6, yp);
+  }
+  // zero baseline emphasise
+  ctx.strokeStyle='#3a4452'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(padL,y0); ctx.lineTo(w-padR,y0); ctx.stroke();
+
+  // bars
+  const bw = Math.max(3, (w-padL-padR)/bars.length*0.64);
+  const rects = [];
+  bars.forEach((b,i)=>{
+    const cx = X(i), yv = Y(b.value);
+    const top = Math.min(yv,y0), hh = Math.abs(yv-y0);
+    ctx.fillStyle = b.color;
+    ctx.fillRect(cx-bw/2, top, bw, Math.max(hh,0.5));
+    rects.push({x:cx-bw/2, y:top, w:bw, h:Math.max(hh,2), b});
+  });
+  // x labels（每 2~3 個顯示一次，年首標年份）
+  ctx.fillStyle='#8b949e'; ctx.textAlign='center'; ctx.textBaseline='top';
+  const step = bars.length>16 ? 2 : 1;
+  bars.forEach((b,i)=>{
+    const isYearStart = b.label.endsWith('/01') || b.label.endsWith('/06') && i===0;
+    if (i%step===0 || isYearStart){
+      ctx.fillStyle = isYearStart ? '#c9d1d9' : '#8b949e';
+      ctx.fillText(b.label, X(i), h-padB+5);
+    }
+  });
+  cv._rects = rects;
+  cv.onmousemove = e=>{
+    const r = cv.getBoundingClientRect();
+    const mx = e.clientX-r.left, my = e.clientY-r.top;
+    const hit = rects.find(rc=> mx>=rc.x-2 && mx<=rc.x+rc.w+2 && my>=Math.min(rc.y,y0)-2 && my<=Math.max(rc.y+rc.h,y0)+2 && Math.abs(mx-(rc.x+rc.w/2))<=bw/2+3);
+    if(hit){
+      tip.innerHTML = `<b>${hit.b.full||hit.b.label}</b><br>${(hit.b.value>=0?'+':'')+fmtFull(hit.b.value)}`;
+      tip.style.left = (e.clientX+12)+'px'; tip.style.top=(e.clientY-10)+'px'; tip.style.opacity=1;
+    } else tip.style.opacity=0;
+  };
+  cv.onmouseleave = ()=> tip.style.opacity=0;
+}
+// 水平長條圖（組成）
+function drawHBars(cv, items){
+  const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0,0,w,h);
+  const padL=4, padR=12, padT=6, padB=6, rowH=(h-padT-padB)/items.length;
+  const maxV = Math.max(...items.map(d=>Math.abs(d.value)))||1;
+  const barL = 150, barR = w-padR-90;
+  ctx.font='12px sans-serif'; ctx.textBaseline='middle';
+  const rects=[];
+  items.forEach((d,i)=>{
+    const cy = padT + rowH*(i+0.5);
+    ctx.fillStyle='#c9d1d9'; ctx.textAlign='left';
+    const name = d.label.length>13 ? d.label.slice(0,12)+'…' : d.label;
+    ctx.fillText(name, padL, cy);
+    const bw = (Math.abs(d.value)/maxV)*(barR-barL);
+    ctx.fillStyle = d.value>=0 ? '#58a6ff' : '#f85149';
+    ctx.fillRect(barL, cy-rowH*0.30, bw, rowH*0.60);
+    ctx.fillStyle='#8b949e'; ctx.textAlign='left';
+    ctx.fillText(fmtWan(d.value), barL+bw+6, cy);
+    rects.push({x:barL, y:cy-rowH*0.30, w:Math.max(bw,4), h:rowH*0.60, b:{label:d.label,value:d.value}});
+  });
+  cv._rects=rects;
+  cv.onmousemove = e=>{
+    const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+    const hit=rects.find(rc=> my>=rc.y && my<=rc.y+rc.h);
+    if(hit){ tip.innerHTML=`<b>${hit.b.label}</b><br>${fmtFull(hit.b.value)}`;
+      tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY-10)+'px'; tip.style.opacity=1; }
+    else tip.style.opacity=0;
+  };
+  cv.onmouseleave=()=>tip.style.opacity=0;
+}
+
+// ====== 渲染 ======
+function render(){
+  const m = DATA.monthly;
+  drawBars(document.getElementById('cPL'),
+    m.map(r=>({label:mLabel(r.ym), full:r.ym, value:r.pl, color: r.pl>=0?'#3fb950':'#f85149'})));
+  drawBars(document.getElementById('cFlow'),
+    m.map(r=>({label:mLabel(r.ym), full:r.ym, value:r.flow, color: r.flow>=0?'#58a6ff':'#f78166'})));
+  drawBars(document.getElementById('cInv'),
+    m.map(r=>({label:mLabel(r.ym), full:r.ym, value:r.inv, color:'#388bfd'})));
+  drawBars(document.getElementById('cNet'),
+    m.map(r=>({label:mLabel(r.ym), full:r.ym, value:r.net, color: r.net>=0?'#7ee787':'#f85149'})));
+  drawHBars(document.getElementById('cHold'),
+    DATA.holdings.filter(h=>h[1]>0).map(h=>({label:h[0], value:h[1]})));
+}
+render();
+let rt; window.addEventListener('resize', ()=>{ clearTimeout(rt); rt=setTimeout(render,150); });
+
+// ====== 明細表 ======
+(function(){
+  const tb = document.querySelector('#tbl tbody');
+  const cell = (v,sign)=>{ const c=v<0?'neg':(sign&&v>0?'pos':''); return `<td class="${c}">${(sign&&v>0?'+':'')+fmtWan(v)}</td>`; };
+  tb.innerHTML = DATA.monthly.map(r=>
+    `<tr><td>${r.ym}</td>${cell(r.pl,1)}${cell(r.flow,1)}<td>${fmtWan(r.inv)}</td>`+
+    `<td>${fmtWan(r.cash)}</td><td>${fmtWan(r.debt)}</td>`+
+    `<td class="${r.net<0?'neg':''}"><b>${fmtWan(r.net)}</b></td></tr>`).join('');
+  document.getElementById('note').innerHTML =
+    '計算方式：每筆帳戶異動的「增減金額」累計＝該帳戶 TWD 市值。'+
+    '<b>損益</b>＝備註為「更新價格/匯率」的估值變動；'+
+    '<b>部位進出</b>＝投資帳戶「新建/增減/修改餘額」的本金流動；'+
+    '<b>負債</b>（車貸/信貸/質押/借款）以欠款餘額計；淨資產＝投資＋現金−負債。'+
+    `最後一個月（${DATA.monthly[DATA.monthly.length-1].ym}）為部分月份資料。`;
+})();
+</script>
+</body>
+</html>
